@@ -1,0 +1,12 @@
+# Keep Docker build context small and avoid invalid symlink/file issues from host deps.
+.git
+.gitignore
+node_modules
+vendor
+npm-debug.log
+yarn-error.log
+storage/logs
+storage/framework/cache
+storage/framework/sessions
+storage/framework/views
+docker.zip
