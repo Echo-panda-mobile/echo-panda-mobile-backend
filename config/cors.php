@@ -9,8 +9,9 @@ return [
 
     // Frontend URLs (localhost for dev, production URLs for prod)
     'allowed_origins' => [
+        'http://168.144.132.67:8082', //production
         'http://localhost:3000',
-        'http://localhost:3001', 
+        'http://localhost:3001',
         'http://localhost:3002',
         'http://127.0.0.1:3000',
         'http://127.0.0.1:3001',
