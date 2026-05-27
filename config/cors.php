@@ -9,8 +9,8 @@ return [
 
     // Frontend URLs (localhost for dev, production URLs for prod)
     'allowed_origins' => [
-        'http://168.144.132.67:8082', //production
-        'https://www.echopanda.me/',
+        'https://echopanda.me',
+        'https://www.echopanda.me',
         'http://localhost:3000',
         'http://localhost:3001',
         'http://localhost:3002',

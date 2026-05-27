@@ -3,6 +3,8 @@ services:
     image: postgres:15
     container_name: echo-pandas-postgres
     restart: unless-stopped
+    ports:
+      - "5432:5432"
     environment:
       POSTGRES_DB: echo_panda_db
       POSTGRES_USER: echo_panda_user
@@ -44,7 +46,7 @@ services:
     restart: unless-stopped
     ports:
       - "80:80"
-      # - "443:443"
+      - "443:443"
     volumes:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
       - .:/var/www/html
