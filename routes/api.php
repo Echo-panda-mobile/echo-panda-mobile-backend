@@ -60,6 +60,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/upload/media/presign', [UploadController::class, 'presignMedia'])
             ->name('api.upload.media.presign');
 
+        Route::post('/upload/media', [UploadController::class, 'media'])
+            ->name('api.upload.media.store');
+
         Route::delete('/upload/media', [UploadController::class, 'deleteMedia'])
             ->name('api.upload.media.delete');
 
