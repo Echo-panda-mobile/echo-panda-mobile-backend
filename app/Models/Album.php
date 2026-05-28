@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class Album extends Model
 {
@@ -81,5 +82,13 @@ class Album extends Model
     public function favorites()
     {
         return $this->morphMany(Favorite::class, 'favoritable');
+    }
+
+    /**
+     * Get moderation reports for this album.
+     */
+    public function reports(): MorphMany
+    {
+        return $this->morphMany(Report::class, 'reportable');
     }
 }

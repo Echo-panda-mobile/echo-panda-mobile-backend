@@ -12,6 +12,21 @@ class ProfileController extends Controller
 {
     use AuthorizesRequests;
 
+    protected function keyFromUrlOrKey(?string $value): ?string
+    {
+        if (! $value) {
+            return null;
+        }
+
+        if (! preg_match('#^https?://#i', $value)) {
+            return ltrim($value, '/');
+        }
+
+        $path = parse_url($value, PHP_URL_PATH);
+
+        return $path ? ltrim(rawurldecode($path), '/') : null;
+    }
+
     /**
      * Get the authenticated user's profile.
      */
@@ -46,7 +61,7 @@ class ProfileController extends Controller
     {
         $user = $request->user();
         $validated = $request->validated();
-        $imageUrl = $validated['image_url'] ?? null;
+        $imageUrl = $this->keyFromUrlOrKey($validated['image_url'] ?? null);
         unset($validated['image_url']);
 
         if ($user->artist) {

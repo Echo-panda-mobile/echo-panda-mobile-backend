@@ -19,7 +19,9 @@ use Illuminate\Support\Facades\Route;
 // Public Authentication Routes
 Route::post('/register', [AuthController::class, 'register'])->name('api.register');
 Route::post('/login', [AuthController::class, 'login'])->name('api.login');
-Route::post('/firebase/login', [AuthController::class, 'firebaseLogin'])->name('api.firebase.login');
+Route::post('/firebase/session', [AuthController::class, 'firebaseLogin'])
+    ->middleware('firebase.auth')
+    ->name('api.firebase.session');
 
 // Public Routes (no authentication required)
 Route::get('/products', [ProductController::class, 'index'])->name('api.products.index');

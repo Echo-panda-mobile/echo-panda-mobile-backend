@@ -6,10 +6,21 @@ import TextInput from '@/Components/TextInput';
 import { Head, useForm } from '@inertiajs/react';
 import { FormEventHandler } from 'react';
 
-export default function Create() {
+interface ArtistOption {
+    id: number;
+    name: string;
+    slug?: string | null;
+}
+
+interface Props {
+    artists: ArtistOption[];
+}
+
+export default function Create({ artists }: Props) {
+
     const { data, setData, post, processing, errors, reset } = useForm({
         title: '',
-        artist: '',
+        artist_id: '',
         release_date: '',
         description: '',
         cover_image: '',
@@ -64,24 +75,24 @@ export default function Create() {
                         </div>
 
                         <div>
-                            <InputLabel htmlFor="artist" value="Artist" />
-
-                            <TextInput
-                                id="artist"
-                                type="text"
-                                name="artist"
-                                value={data.artist}
+                            <InputLabel htmlFor="artist_id" value="Artist" />
+                            <select
+                                id="artist_id"
+                                name="artist_id"
+                                value={data.artist_id}
                                 className={controlClass}
-                                onChange={(e) =>
-                                    setData('artist', e.target.value)
-                                }
+                                onChange={(e) => setData('artist_id', e.target.value)}
                                 required
-                            />
+                            >
+                                <option value="">Choose an artist</option>
+                                {artists.map((artist) => (
+                                    <option key={artist.id} value={artist.id}>
+                                        {artist.name}
+                                    </option>
+                                ))}
+                            </select>
 
-                            <InputError
-                                message={errors.artist}
-                                className="mt-2"
-                            />
+                            <InputError message={errors.artist_id} className="mt-2" />
                         </div>
 
                         <div>

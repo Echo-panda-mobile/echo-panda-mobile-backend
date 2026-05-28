@@ -8,6 +8,17 @@ export interface Song {
     duration: number;
     track_number: number;
     lyrics: string | null;
+    is_active?: boolean;
+    report_count?: number;
+    open_report_count?: number;
+    recent_reports?: Array<{
+        id: number;
+        reason: string;
+        details?: string | null;
+        status: string;
+        reporter?: string | null;
+        created_at: string;
+    }>;
     created_at: string;
     updated_at: string;
     album?: Album;

@@ -22,9 +22,9 @@ class FirebaseLoginRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'email' => ['required', 'string', 'email'],
+            'id_token' => ['required', 'string'],
+            'email' => ['nullable', 'string', 'email'],
             'name' => ['nullable', 'string', 'max:255'],
-            'firebase_uid' => ['nullable', 'string', 'max:255'],
             'provider' => ['nullable', 'string', 'max:50'],
         ];
     }

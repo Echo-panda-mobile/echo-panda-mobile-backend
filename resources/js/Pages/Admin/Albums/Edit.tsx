@@ -7,14 +7,21 @@ import { Head, useForm } from '@inertiajs/react';
 import { FormEventHandler } from 'react';
 import { Album } from '@/types/album';
 
-interface Props {
-    album: Album;
+interface ArtistOption {
+    id: number;
+    name: string;
+    slug?: string | null;
 }
 
-export default function Edit({ album }: Props) {
+interface Props {
+    album: Album;
+    artists: ArtistOption[];
+}
+
+export default function Edit({ album, artists }: Props) {
     const { data, setData, put, processing, errors } = useForm({
         title: album.title || '',
-        artist: album.artist || '',
+        artist_id: String((album as Album & { artist_id?: number | null }).artist_id || ''),
         release_date: album.release_date
             ? new Date(album.release_date).toISOString().split('T')[0]
             : '',
@@ -69,24 +76,25 @@ export default function Edit({ album }: Props) {
                         </div>
 
                         <div>
-                            <InputLabel htmlFor="artist" value="Artist" />
+                            <InputLabel htmlFor="artist_id" value="Artist" />
 
-                            <TextInput
-                                id="artist"
-                                type="text"
-                                name="artist"
-                                value={data.artist}
+                            <select
+                                id="artist_id"
+                                name="artist_id"
+                                value={data.artist_id}
                                 className={controlClass}
-                                onChange={(e) =>
-                                    setData('artist', e.target.value)
-                                }
+                                onChange={(e) => setData('artist_id', e.target.value)}
                                 required
-                            />
+                            >
+                                <option value="">Choose an artist</option>
+                                {artists.map((artist) => (
+                                    <option key={artist.id} value={artist.id}>
+                                        {artist.name}
+                                    </option>
+                                ))}
+                            </select>
 
-                            <InputError
-                                message={errors.artist}
-                                className="mt-2"
-                            />
+                            <InputError message={errors.artist_id} className="mt-2" />
                         </div>
 
                         <div>

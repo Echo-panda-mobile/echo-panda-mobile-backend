@@ -11,6 +11,21 @@ use Illuminate\Support\Facades\Storage;
 
 class ArtistController extends Controller
 {
+    protected function keyFromUrlOrKey(?string $value): ?string
+    {
+        if (! $value) {
+            return null;
+        }
+
+        if (! preg_match('#^https?://#i', $value)) {
+            return ltrim($value, '/');
+        }
+
+        $path = parse_url($value, PHP_URL_PATH);
+
+        return $path ? ltrim(rawurldecode($path), '/') : null;
+    }
+
     /**
      * Get all artists (public endpoint).
      */
@@ -37,11 +52,15 @@ class ArtistController extends Controller
      */
     public function imageUrl(Artist $artist): JsonResponse
     {
-        if (!$artist->image_url) {
+        $imageKey = $this->keyFromUrlOrKey($artist->image_url);
+
+        if (! $imageKey) {
             return response()->json(['message' => 'Artist image not available'], 404);
         }
 
-        $signedUrl = Storage::disk('s3')->temporaryUrl($artist->image_url, now()->addMinutes(60));
+        /** @var \Illuminate\Filesystem\AwsS3V3Adapter $disk */
+        $disk = Storage::disk('s3');
+        $signedUrl = $disk->temporaryUrl($imageKey, now()->addMinutes(60));
 
         return response()->json([
             'artist_id' => $artist->id,
@@ -67,7 +86,7 @@ class ArtistController extends Controller
         ]);
 
         $name = $request->string('name')->toString();
-        $imageUrl = $request->string('image_url')->toString() ?: null;
+        $imageUrl = $this->keyFromUrlOrKey($request->string('image_url')->toString() ?: null);
 
         $slugBase = Str::slug($name ?: ($user->name ?: 'artist')) ?: 'artist';
         $slug = $slugBase;

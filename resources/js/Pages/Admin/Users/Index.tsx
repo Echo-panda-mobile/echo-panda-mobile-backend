@@ -10,7 +10,8 @@ interface Props extends PageProps {
 export default function Index({ users }: Props) {
     const handleBan = (id: number) => {
         if (confirm('Ban/unban this user?')) {
-            router.post(route('admin.users.update', id), { _method: 'PATCH', banned: true });
+            const current = users.data.find((user) => user.id === id);
+            router.put(route('admin.users.update', id), { is_banned: !current?.is_banned });
         }
     };
 
@@ -30,7 +31,9 @@ export default function Index({ users }: Props) {
                                 View all users, inspect behavior, and apply ban or unban actions when moderation requires it.
                             </p>
                         </div>
-                        <PrimaryButton onClick={() => alert('Manual create via API')}>Create User</PrimaryButton>
+                        <Link href={route('admin.users.create')}>
+                            <PrimaryButton>Create User</PrimaryButton>
+                        </Link>
                     </div>
                 </div>
 
@@ -44,19 +47,27 @@ export default function Index({ users }: Props) {
                                 <tr>
                                     <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">Name</th>
                                     <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">Email</th>
+                                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">Role</th>
+                                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">Status</th>
                                     <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-white/10">
                                 {users.data.length === 0 ? (
                                     <tr>
-                                        <td colSpan={3} className="px-6 py-10 text-center text-sm text-slate-400">No users</td>
+                                        <td colSpan={5} className="px-6 py-10 text-center text-sm text-slate-400">No users</td>
                                     </tr>
                                 ) : (
                                     users.data.map((u) => (
                                         <tr key={u.id} className="transition hover:bg-white/5">
                                             <td className="px-6 py-4 text-sm font-semibold text-white">{u.name}</td>
                                             <td className="px-6 py-4 text-sm text-slate-300">{u.email}</td>
+                                            <td className="px-6 py-4 text-sm text-slate-300 capitalize">{u.role}</td>
+                                            <td className="px-6 py-4 text-sm text-slate-300">
+                                                <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${u.is_banned ? 'bg-rose-500/15 text-rose-200 ring-1 ring-rose-400/20' : 'bg-emerald-400/15 text-emerald-200 ring-1 ring-emerald-400/20'}`}>
+                                                    {u.is_banned ? 'Banned' : 'Active'}
+                                                </span>
+                                            </td>
                                             <td className="px-6 py-4 text-right text-sm font-medium">
                                                 <Link href={route('admin.users.show', u.id)} className="mr-3 text-cyan-200 hover:text-cyan-100">View</Link>
                                                 <button onClick={() => handleBan(u.id)} className="text-rose-300 hover:text-rose-200">Ban / Unban</button>

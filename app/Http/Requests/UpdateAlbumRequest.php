@@ -23,7 +23,7 @@ class UpdateAlbumRequest extends FormRequest
     {
         return [
             'title' => ['required', 'string', 'max:255'],
-            'artist' => ['required', 'string', 'max:255'],
+            'artist_id' => ['required', 'exists:artists,id'],
             'release_date' => ['nullable', 'date'],
             'description' => ['nullable', 'string'],
             'release_status' => ['nullable', 'in:draft,pending_review,published,rejected'],

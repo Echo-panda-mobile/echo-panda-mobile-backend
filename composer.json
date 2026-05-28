@@ -15,6 +15,7 @@
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^2.10.1",
         "league/flysystem-aws-s3-v3": "^3.0",
+        "kreait/firebase-php": "^8.0",
         "tightenco/ziggy": "^2.0"
     },
     "require-dev": {
@@ -84,6 +85,9 @@
         "optimize-autoloader": true,
         "preferred-install": "dist",
         "sort-packages": true,
+        "audit": {
+            "block-insecure": false
+        },
         "allow-plugins": {
             "pestphp/pest-plugin": true,
             "php-http/discovery": true

@@ -166,22 +166,12 @@ class AuthController extends Controller
      */
     public function firebaseLogin(FirebaseLoginRequest $request): JsonResponse
     {
-        $validated = $request->validated();
+        $user = $request->user();
 
-        $users = User::where('email', $validated['email'])->get();
-
-        $user = $users->firstWhere('role', User::ROLE_ADMIN)
-            ?? $users->first()
-            ?? User::create([
-                'email' => $validated['email'],
-                'name' => $validated['name'] ?? explode('@', $validated['email'])[0],
-                'password' => Hash::make((string) str()->uuid()),
-                'role' => User::ROLE_USER,
-            ]);
-
-        if (! empty($validated['name']) && $user->name !== $validated['name']) {
-            $user->name = $validated['name'];
-            $user->save();
+        if (! $user) {
+            return response()->json([
+                'message' => 'Firebase user could not be resolved.',
+            ], 401);
         }
 
         $this->ensureArtistProfile($user);
@@ -191,8 +181,8 @@ class AuthController extends Controller
         return response()->json([
             'message' => 'Firebase login synchronized successfully',
             'user' => $this->serializeUser($user),
-            'firebase_uid' => $validated['firebase_uid'] ?? null,
-            'provider' => $validated['provider'] ?? null,
+            'firebase_uid' => $user->firebase_uid,
+            'provider' => $request->validated()['provider'] ?? null,
             'redirect_to' => $user->roleRedirectTarget(),
             'token' => $token,
             'token_type' => 'Bearer',

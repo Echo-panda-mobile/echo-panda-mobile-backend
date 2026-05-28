@@ -68,16 +68,22 @@ export default function Authenticated({
             label: 'Operations',
             links: [
                 {
-                    href: route('admin.reports.index'),
-                    pattern: 'admin.reports.*',
-                    label: 'Reports',
+                    href: route('admin.moderation.index'),
+                    pattern: 'admin.moderation.*',
+                    label: 'Moderation',
                     icon: 'M9 12h6m-6 4h6M4 6h16v12H4z',
                 },
                 {
                     href: route('admin.genres.index'),
                     pattern: 'admin.genres.*',
-                    label: 'Genres',
+                    label: 'Categories',
                     icon: 'M12 2l3 7h7l-5.5 4.1L19 21l-7-4.3L5 21l2.5-7.9L2 9h7z',
+                },
+                {
+                    href: route('admin.tags.index'),
+                    pattern: 'admin.tags.*',
+                    label: 'Tags',
+                    icon: 'M5 7a2 2 0 012-2h8.586a2 2 0 011.414.586l4.414 4.414A2 2 0 0122 11.414V20a2 2 0 01-2 2h-8.586a2 2 0 01-1.414-.586L5.586 17.414A2 2 0 015 16V7zm4 2a1 1 0 100 2 1 1 0 000-2z',
                 },
                 {
                     href: route('admin.featured.index'),

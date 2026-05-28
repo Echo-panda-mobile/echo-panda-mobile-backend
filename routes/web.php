@@ -8,10 +8,13 @@ use App\Models\ListenHistory;
 use App\Models\Report;
 use App\Models\Song;
 use App\Models\User;
+use App\Models\Genre;
+use App\Models\Tag;
 use App\Http\Controllers\Admin\AnalyticsController as AdminAnalyticsController;
 use App\Http\Controllers\Admin\ArtistController as AdminArtistController;
 use App\Http\Controllers\Admin\FeaturedController as AdminFeaturedController;
 use App\Http\Controllers\Admin\GenreController as AdminGenreController;
+use App\Http\Controllers\Admin\TagController as AdminTagController;
 use App\Http\Controllers\Admin\ReportController as AdminReportController;
 use App\Http\Controllers\Admin\AlbumController as AdminAlbumController;
 use App\Http\Controllers\Admin\ProductController as AdminProductController;
@@ -20,10 +23,66 @@ use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Schema;
 use Inertia\Inertia;
 
 Route::redirect('/', '/dashboard');
 Route::get('/dashboard', function () {
+    $latestUsers = User::query()
+        ->latest()
+        ->limit(5)
+        ->get()
+        ->map(fn (User $user) => [
+            'id' => $user->id,
+            'name' => $user->name,
+            'email' => $user->email,
+            'role' => $user->role,
+            'created_at' => $user->created_at,
+        ])
+        ->values();
+
+    $latestArtists = Artist::query()
+        ->latest()
+        ->limit(5)
+        ->get()
+        ->map(fn (Artist $artist) => [
+            'id' => $artist->id,
+            'name' => $artist->name,
+            'slug' => $artist->slug,
+            'is_active' => (bool) $artist->is_active,
+            'created_at' => $artist->created_at,
+        ])
+        ->values();
+
+    $latestSongs = Song::query()
+        ->with('album')
+        ->latest()
+        ->limit(5)
+        ->get()
+        ->map(fn (Song $song) => [
+            'id' => $song->id,
+            'title' => $song->title,
+            'artist' => $song->artist ?: $song->artistModel?->name,
+            'album' => $song->album?->title,
+            'play_count' => (int) $song->play_count,
+            'created_at' => $song->created_at,
+        ])
+        ->values();
+
+    $latestAlbums = Album::query()
+        ->with('artistModel')
+        ->latest()
+        ->limit(5)
+        ->get()
+        ->map(fn (Album $album) => [
+            'id' => $album->id,
+            'title' => $album->title,
+            'artist' => $album->artist ?: $album->artistModel?->name,
+            'release_status' => $album->release_status,
+            'created_at' => $album->created_at,
+        ])
+        ->values();
+
     $recentDays = collect(range(6, 0))->map(function (int $offset) {
         $date = now()->subDays($offset)->startOfDay();
 
@@ -52,6 +111,32 @@ Route::get('/dashboard', function () {
         ])
         ->values();
 
+    $mostPlayedSong = Song::query()
+        ->with(['album.artistModel'])
+        ->orderByDesc('play_count')
+        ->first();
+
+    $favoriteArtistGroups = Song::query()
+        ->withCount('favorites')
+        ->with(['artistModel'])
+        ->get()
+        ->groupBy(fn (Song $song) => $song->artist_id ?: $song->artist ?: $song->id);
+
+    $mostFavoriteArtist = $favoriteArtistGroups
+        ->map(function ($songs) {
+            $first = $songs->first();
+
+            return [
+                'id' => $first?->artist_id,
+                'name' => $first?->artistModel?->name ?: $first?->artist ?: 'Unknown Artist',
+                'favorites_count' => (int) $songs->sum('favorites_count'),
+                'songs_count' => $songs->count(),
+            ];
+        })
+        ->sortByDesc('favorites_count')
+        ->values()
+        ->first();
+
     $trendingArtists = Artist::query()
         ->withCount(['songs', 'albums'])
         ->withSum('songs', 'play_count')
@@ -78,6 +163,8 @@ Route::get('/dashboard', function () {
             'active_songs' => Song::where('is_active', true)->count(),
             'total_albums' => Album::count(),
             'published_albums' => Album::where('release_status', 'published')->count(),
+            'total_categories' => Genre::count(),
+            'total_tags' => Schema::hasTable('tags') ? Tag::count() : 0,
         ],
         'moderation' => [
             'reports_open' => Report::count(),
@@ -89,10 +176,24 @@ Route::get('/dashboard', function () {
             'completed_listens' => ListenHistory::where('completed', true)->count(),
             'today_listens' => ListenHistory::whereDate('created_at', today())->count(),
             'minutes_listened' => (int) round((ListenHistory::sum('duration_listened') ?: 0) / 60),
+            'total_streams' => Song::sum('play_count'),
+            'new_users_this_month' => User::whereYear('created_at', now()->year)->whereMonth('created_at', now()->month)->count(),
         ],
         'recent_growth' => $recentDays,
         'most_favorited_songs' => $mostFavoritedSongs,
+        'most_played_song' => $mostPlayedSong ? [
+            'id' => $mostPlayedSong->id,
+            'title' => $mostPlayedSong->title,
+            'artist' => $mostPlayedSong->artist ?: $mostPlayedSong->artistModel?->name,
+            'album' => $mostPlayedSong->album?->title,
+            'play_count' => (int) $mostPlayedSong->play_count,
+        ] : null,
+        'most_favorite_artist' => $mostFavoriteArtist,
         'trending_artists' => $trendingArtists,
+        'latest_users' => $latestUsers,
+        'latest_artists' => $latestArtists,
+        'latest_songs' => $latestSongs,
+        'latest_albums' => $latestAlbums,
     ];
 
     return Inertia::render('Dashboard', [
@@ -108,14 +209,24 @@ Route::middleware('auth')->group(function () {
     // Admin Routes
     Route::prefix('admin')->name('admin.')->middleware('role:admin')->group(function () {
         Route::resource('artists', AdminArtistController::class);
-        Route::resource('users', AdminUserController::class)->only(['index', 'show', 'update', 'destroy']);
+        Route::resource('users', AdminUserController::class)->only(['index', 'show', 'create', 'store', 'update', 'destroy']);
         Route::resource('reports', AdminReportController::class)->only(['index', 'show', 'destroy']);
+        Route::get('moderation', [AdminReportController::class, 'index'])->name('moderation.index');
         Route::resource('genres', AdminGenreController::class)->only(['index', 'store', 'update', 'destroy']);
+        Route::resource('tags', AdminTagController::class)->only(['index', 'store', 'update', 'destroy']);
         Route::resource('featured', AdminFeaturedController::class)->only(['index', 'store', 'destroy']);
         Route::get('analytics', [AdminAnalyticsController::class, 'index'])->name('analytics.index');
         Route::resource('products', AdminProductController::class);
         Route::resource('albums', AdminAlbumController::class);
+        Route::post('albums/{album}/approve', [AdminAlbumController::class, 'approve'])->name('albums.approve');
+        Route::post('albums/{album}/hide', [AdminAlbumController::class, 'hide'])->name('albums.hide');
+        Route::post('albums/{album}/report', [AdminAlbumController::class, 'report'])->name('albums.report');
+        Route::post('albums/bulk-moderate', [AdminAlbumController::class, 'bulkModerate'])->name('albums.bulk-moderate');
         Route::resource('songs', AdminSongController::class);
+        Route::post('songs/{song}/approve', [AdminSongController::class, 'approve'])->name('songs.approve');
+        Route::post('songs/{song}/hide', [AdminSongController::class, 'hide'])->name('songs.hide');
+        Route::post('songs/{song}/report', [AdminSongController::class, 'report'])->name('songs.report');
+        Route::post('songs/bulk-moderate', [AdminSongController::class, 'bulkModerate'])->name('songs.bulk-moderate');
     });
 });
 

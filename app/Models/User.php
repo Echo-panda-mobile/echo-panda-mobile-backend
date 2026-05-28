@@ -27,8 +27,10 @@ class User extends Authenticatable
     protected $fillable = [
         'name',
         'email',
+        'firebase_uid',
         'password',
         'role',
+        'is_banned',
     ];
 
     /**
@@ -51,12 +53,18 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'is_banned' => 'boolean',
         ];
     }
 
     public function isAdmin(): bool
     {
         return $this->role === self::ROLE_ADMIN;
+    }
+
+    public function isBanned(): bool
+    {
+        return (bool) $this->is_banned;
     }
 
     public function isArtistOrPublicer(): bool

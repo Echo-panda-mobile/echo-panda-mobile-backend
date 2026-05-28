@@ -45,22 +45,28 @@ export default function Index({ artists }: Props) {
                             <thead className="bg-white/5">
                                 <tr>
                                     <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">Name</th>
-                                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">Verified</th>
+                                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">Status</th>
+                                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">Verification</th>
                                     <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-[0.35em] text-slate-400">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-white/10">
                                 {artists.data.length === 0 ? (
                                     <tr>
-                                        <td colSpan={3} className="px-6 py-10 text-center text-sm text-slate-400">No artists</td>
+                                        <td colSpan={4} className="px-6 py-10 text-center text-sm text-slate-400">No artists</td>
                                     </tr>
                                 ) : (
                                     artists.data.map((a) => (
                                         <tr key={a.id} className="bg-transparent transition hover:bg-white/5">
                                             <td className="px-6 py-4 text-sm font-semibold text-white">{a.name}</td>
                                             <td className="px-6 py-4 text-sm text-slate-300">
-                                                <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${a.verified ? 'bg-emerald-400/15 text-emerald-200 ring-1 ring-emerald-400/20' : 'bg-amber-400/15 text-amber-200 ring-1 ring-amber-400/20'}`}>
-                                                    {a.verified ? 'Verified' : 'Pending'}
+                                                <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${a.is_active ? 'bg-emerald-400/15 text-emerald-200 ring-1 ring-emerald-400/20' : 'bg-rose-400/15 text-rose-200 ring-1 ring-rose-400/20'}`}>
+                                                    {a.is_active ? 'Active' : 'Inactive'}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 text-sm text-slate-300">
+                                                <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${a.verification_status === 'approved' ? 'bg-emerald-400/15 text-emerald-200 ring-1 ring-emerald-400/20' : a.verification_status === 'rejected' ? 'bg-rose-400/15 text-rose-200 ring-1 ring-rose-400/20' : 'bg-amber-400/15 text-amber-200 ring-1 ring-amber-400/20'}`}>
+                                                    {a.verification_status || 'pending'}
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 text-right text-sm font-medium">

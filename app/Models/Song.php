@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class Song extends Model
 {
@@ -117,5 +118,13 @@ class Song extends Model
     public function ratings()
     {
         return $this->hasMany(Rating::class);
+    }
+
+    /**
+     * Get moderation reports for this song.
+     */
+    public function reports(): MorphMany
+    {
+        return $this->morphMany(Report::class, 'reportable');
     }
 }

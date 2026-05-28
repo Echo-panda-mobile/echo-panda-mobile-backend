@@ -20,6 +20,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'role' => \App\Http\Middleware\CheckRole::class,
             'require.range' => \App\Http\Middleware\EnforceRangeRequests::class,
+            'firebase.auth' => \App\Http\Middleware\FirebaseAuthMiddleware::class,
         ]);
 
         //
