@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class AdminArtistController extends Controller
 {
@@ -22,7 +23,7 @@ class AdminArtistController extends Controller
 
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255', 'unique:users,email'],
+            'email' => ['required', 'email', 'max:255'],
             'password' => ['required', 'string', 'min:8'],
             'artist_type' => ['nullable', Rule::in(['single', 'group', 'Single', 'Group'])],
             'gender' => ['nullable', Rule::in(['male', 'female', 'they', 'Male', 'Female', 'They'])],
@@ -30,22 +31,43 @@ class AdminArtistController extends Controller
         ]);
 
         $plainPassword = $validated['password'];
-        $createdUser = null;
+        $email = strtolower(trim($validated['email']));
+
+        $existingUser = User::query()->whereRaw('LOWER(email) = ?', [$email])->first();
+
+        if ($existingUser?->artist) {
+            throw ValidationException::withMessages([
+                'email' => ['This email already has an artist profile.'],
+            ]);
+        }
+
+        $user = null;
+        $artist = null;
 
         try {
-            $result = DB::transaction(function () use ($validated, &$createdUser) {
-                $userData = [
-                    'name' => $validated['name'],
-                    'email' => $validated['email'],
-                    'password' => Hash::make($validated['password']),
-                    'role' => User::ROLE_ARTIST,
-                ];
+            $result = DB::transaction(function () use ($validated, $email, $plainPassword, $existingUser, &$user, &$artist) {
+                if ($existingUser) {
+                    $existingUser->forceFill([
+                        'name' => $validated['name'],
+                        'email' => $email,
+                        'password' => Hash::make($plainPassword),
+                        'role' => User::ROLE_ARTIST,
+                    ])->save();
+                    $user = $existingUser->fresh();
+                } else {
+                    $userData = [
+                        'name' => $validated['name'],
+                        'email' => $email,
+                        'password' => Hash::make($plainPassword),
+                        'role' => User::ROLE_ARTIST,
+                    ];
 
-                if (Schema::hasColumn('users', 'is_banned')) {
-                    $userData['is_banned'] = false;
+                    if (Schema::hasColumn('users', 'is_banned')) {
+                        $userData['is_banned'] = false;
+                    }
+
+                    $user = User::create($userData);
                 }
-
-                $createdUser = User::create($userData);
 
                 $bioParts = array_filter([
                     ! empty($validated['artist_type'])
@@ -66,7 +88,7 @@ class AdminArtistController extends Controller
                 $verificationStatus = $validated['verification_status'] ?? 'pending';
 
                 $artist = Artist::create([
-                    'user_id' => $createdUser->id,
+                    'user_id' => $user->id,
                     'name' => $validated['name'],
                     'slug' => $slug,
                     'bio' => $bioParts ? implode(' | ', $bioParts) : null,
@@ -76,36 +98,48 @@ class AdminArtistController extends Controller
                 ]);
 
                 return [
-                    'user' => $createdUser->fresh(),
+                    'user' => $user,
                     'artist' => $artist,
+                    'upgraded_from_user' => $existingUser !== null,
                 ];
             });
         } catch (\Throwable $throwable) {
-            if ($createdUser) {
-                $createdUser->delete();
-            }
-
             throw $throwable;
         }
 
         $user = $result['user'];
-        $firebaseMessage = null;
+        $artist = $result['artist'];
 
         try {
             $provision = $firebaseProvisioner->provisionWithPassword($user, $plainPassword);
-            if (! empty($provision['firebase_uid'])) {
-                $user->forceFill(['firebase_uid' => $provision['firebase_uid']])->save();
+            if (empty($provision['firebase_uid'])) {
+                throw new \RuntimeException('Firebase UID was not returned.');
             }
-            $firebaseMessage = ($provision['created'] ?? false)
-                ? 'Firebase account created. They can sign in on mobile with this email and password.'
-                : 'Firebase account updated. They can sign in on mobile with this email and password.';
+
+            $user->forceFill(['firebase_uid' => $provision['firebase_uid']])->save();
         } catch (\Throwable $throwable) {
-            $firebaseMessage = 'Artist saved, but Firebase setup failed: '.$throwable->getMessage();
+            $artist->delete();
+            if ($result['upgraded_from_user']) {
+                $user->forceFill(['role' => User::ROLE_USER])->save();
+            } else {
+                $user->delete();
+            }
+
+            return response()->json([
+                'message' => 'Could not create Firebase login for this artist.',
+                'error' => $throwable->getMessage(),
+                'hint' => 'Check FIREBASE_CREDENTIALS on the server (service account for echo-panda-auth).',
+            ], 502);
         }
 
+        $user->refresh();
+
         return response()->json([
-            'message' => 'Artist account created successfully.',
-            'firebase_message' => $firebaseMessage,
+            'message' => $result['upgraded_from_user']
+                ? 'Existing account upgraded to artist.'
+                : 'Artist account created successfully.',
+            'firebase_message' => 'Firebase account is ready. They can sign in on the app with this email and password.',
+            'firebase_provisioned' => true,
             'user' => [
                 'id' => $user->id,
                 'name' => $user->name,
@@ -113,10 +147,10 @@ class AdminArtistController extends Controller
                 'role' => $user->role,
             ],
             'artist' => [
-                'id' => $result['artist']->id,
-                'name' => $result['artist']->name,
-                'slug' => $result['artist']->slug,
-                'verification_status' => $result['artist']->verification_status,
+                'id' => $artist->id,
+                'name' => $artist->name,
+                'slug' => $artist->slug,
+                'verification_status' => $artist->verification_status,
             ],
         ], 201);
     }
