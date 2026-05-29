@@ -91,6 +91,58 @@ class FirebaseUserProvisioner
         ];
     }
 
+    /**
+     * Provision (or update) a Firebase user and set the given password for mobile sign-in.
+     */
+    public function provisionWithPassword(User $user, string $password): array
+    {
+        $firebaseAuth = $this->auth();
+        $firebaseUser = null;
+
+        if ($user->firebase_uid) {
+            try {
+                $firebaseUser = $firebaseAuth->getUser($user->firebase_uid);
+            } catch (\Throwable) {
+                $firebaseUser = null;
+            }
+        }
+
+        if (! $firebaseUser) {
+            try {
+                $firebaseUser = $firebaseAuth->getUserByEmail($user->email);
+            } catch (\Throwable) {
+                $firebaseUser = null;
+            }
+        }
+
+        if ($firebaseUser) {
+            $updated = $firebaseAuth->updateUser($firebaseUser->uid, [
+                'displayName' => $user->name,
+                'email' => $user->email,
+                'password' => $password,
+                'disabled' => false,
+            ]);
+
+            return [
+                'firebase_uid' => $updated->uid,
+                'created' => false,
+            ];
+        }
+
+        $created = $firebaseAuth->createUser([
+            'email' => $user->email,
+            'password' => $password,
+            'emailVerified' => false,
+            'displayName' => $user->name,
+            'disabled' => false,
+        ]);
+
+        return [
+            'firebase_uid' => $created->uid,
+            'created' => true,
+        ];
+    }
+
     public function createPasswordResetLink(User $user): string
     {
         $settings = ValidatedActionCodeSettings::fromArray([

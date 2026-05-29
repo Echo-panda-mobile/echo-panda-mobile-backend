@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\Admin\AdminArtistController;
 use App\Http\Controllers\Api\AlbumController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\FavoriteController;
@@ -49,6 +50,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('role:admin')->group(function () {
         Route::get('/users/by-role', [AuthController::class, 'usersByRole'])
             ->name('api.users.by-role');
+        Route::post('/admin/artists', [AdminArtistController::class, 'store'])
+            ->name('api.admin.artists.store');
     });
 
     // Profile Routes
