@@ -11,6 +11,8 @@ use App\Http\Controllers\Api\Streaming\LyricsController;
 use App\Http\Controllers\Api\Streaming\PlaybackController;
 use App\Http\Controllers\Api\Streaming\StreamTicketController;
 use App\Http\Controllers\Api\ListenHistoryController;
+use App\Http\Controllers\Api\Mobile\MbFavoriteController;
+use App\Http\Controllers\Api\Mobile\MbPlaybackController;
 use App\Http\Controllers\Api\PlaylistController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\ProfileController;
@@ -105,6 +107,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/favorites/songs/remove', [FavoriteController::class, 'removeSong'])->name('api.favorites.remove-song');
     Route::post('/favorites/albums/remove', [FavoriteController::class, 'removeAlbum'])->name('api.favorites.remove-album');
     Route::delete('/favorites/{favorite}', [FavoriteController::class, 'destroy'])->name('api.favorites.destroy');
+
+    // Mobile-only routes (MB prefix — do not change web-facing endpoints above)
+    Route::prefix('mb')->name('api.mb.')->group(function () {
+        Route::get('/favorites', [MbFavoriteController::class, 'index'])->name('favorites.index');
+        Route::get('/playback/recent', [MbPlaybackController::class, 'recent'])->name('playback.recent');
+    });
 
     // Listen History Routes
     Route::post('/listen-history', [ListenHistoryController::class, 'track'])->name('api.listen-history.track');
