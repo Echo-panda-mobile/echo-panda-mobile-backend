@@ -9,6 +9,22 @@ use App\Models\Song;
  */
 final class MbSongTransformer
 {
+    /**
+     * DB should store seconds; some rows may have milliseconds (e.g. 180000 → 180s).
+     */
+    public static function normalizeDurationSeconds(?int $duration): int
+    {
+        if ($duration === null || $duration <= 0) {
+            return 0;
+        }
+
+        if ($duration > 10_000) {
+            return (int) round($duration / 1000);
+        }
+
+        return (int) $duration;
+    }
+
     public static function transform(Song $song): array
     {
         $song->loadMissing(['album', 'artistModel']);
@@ -27,7 +43,7 @@ final class MbSongTransformer
                 ]
                 : null,
             'artist_name' => $song->artist ?: $song->artistModel?->name,
-            'duration' => (int) ($song->duration ?? 0),
+            'duration' => self::normalizeDurationSeconds($song->duration),
             'track_number' => $song->track_number,
             'lyrics' => $song->lyrics,
             'audio_url' => $song->original_key,
