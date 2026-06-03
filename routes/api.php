@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\FavoriteController;
 use App\Http\Controllers\Api\Artist\AnalyticsController;
 use App\Http\Controllers\Api\Artist\UploadController;
+use App\Http\Controllers\Api\GenreController;
 use App\Http\Controllers\Api\Streaming\AudioStreamController;
 use App\Http\Controllers\Api\Streaming\LyricsController;
 use App\Http\Controllers\Api\Streaming\PlaybackController;
@@ -28,6 +29,7 @@ Route::post('/firebase/session', [AuthController::class, 'firebaseLogin'])
     ->name('api.firebase.session');
 
 // Public Routes (no authentication required)
+Route::get('/genres', [GenreController::class, 'index'])->name('api.genres.index');
 Route::get('/products', [ProductController::class, 'index'])->name('api.products.index');
 Route::get('/products/{product}', [ProductController::class, 'show'])->name('api.products.show');
 
@@ -48,7 +50,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // User Authentication Routes
     Route::post('/logout', [AuthController::class, 'logout'])->name('api.logout');
     Route::get('/me', [AuthController::class, 'me'])->name('api.me');
-    
+
     // User Management (admin only)
     Route::middleware('role:admin')->group(function () {
         Route::get('/users/by-role', [AuthController::class, 'usersByRole'])
@@ -189,4 +191,3 @@ if (app()->environment('local') || app()->environment('development') || env('APP
         return response()->json(['token' => $token, 'user_id' => $user->id, 'artist_id' => $artist->id]);
     });
 }
-
