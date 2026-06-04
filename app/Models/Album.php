@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
@@ -11,7 +12,14 @@ use Illuminate\Database\Eloquent\Relations\MorphMany;
 class Album extends Model
 {
     /** @use HasFactory<\Database\Factories\AlbumFactory> */
-    use HasFactory;
+    use HasFactory, SoftDeletes;
+
+    /**
+     * The accessors to append to the model's array form.
+     *
+     * @var array
+     */
+    protected $appends = ['cover_url'];
 
     /**
      * The attributes that are mass assignable.
@@ -46,11 +54,28 @@ class Album extends Model
     }
 
     /**
-     * Keep the legacy cover_url attribute available as an alias for cover_key.
+     * Get the cover URL with multi-disk support.
      */
-    public function getCoverUrlAttribute()
+    public function getCoverUrlAttribute($value)
     {
-        return $this->attributes['cover_key'] ?? $this->attributes['cover_url'] ?? null;
+        $path = $this->attributes['cover_key'] ?? $value ?? null;
+        if (!$path) return null;
+
+        if (filter_var($path, FILTER_VALIDATE_URL)) {
+            return $path;
+        }
+
+        // Try public disk first
+        if (\Illuminate\Support\Facades\Storage::disk('public')->exists($path)) {
+            return \Illuminate\Support\Facades\Storage::disk('public')->url($path);
+        }
+
+        // Fallback to S3 with signed URL
+        try {
+            return \Illuminate\Support\Facades\Storage::disk('s3')->temporaryUrl($path, now()->addMinutes(60));
+        } catch (\Exception $e) {
+            return \Illuminate\Support\Facades\Storage::disk('s3')->url($path);
+        }
     }
 
     /**

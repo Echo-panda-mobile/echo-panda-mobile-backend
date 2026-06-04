@@ -3,7 +3,7 @@
 return [
 
     // Allow CORS for API and static asset paths used by the frontend
-    'paths' => ['api/*', 'sanctum/csrf-cookie', 'images/*', 'covers/*', 'audio/*'],
+    'paths' => ['api/*', 'sanctum/csrf-cookie', 'images/*', 'covers/*', 'audio/*', 'login', 'register', 'logout'],
 
     'allowed_methods' => ['*'],
 

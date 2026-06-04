@@ -7,6 +7,7 @@ export interface Song {
     artist: string | null;
     duration: number;
     track_number: number;
+    cover_url?: string;
     lyrics: string | null;
     is_active?: boolean;
     report_count?: number;

@@ -15,45 +15,40 @@ class UserController extends Controller
     public function index(Request $request): Response
     {
         $this->authorize('viewAny', \App\Models\User::class);
+
+        $search = $request->input('search');
+
         $users = User::query()
+            ->when($search, function ($query, $search) {
+                $query->where('name', 'like', "%{$search}%")
+                    ->orWhere('email', 'like', "%{$search}%");
+            })
             ->latest()
             ->paginate(20)
             ->withQueryString();
 
         return Inertia::render('Admin/Users/Index', [
             'users' => $users,
+            'filters' => [
+                'search' => $search,
+            ],
         ]);
     }
 
+    /*
+     * User creation is disabled per requirements
     public function create(): Response
     {
         $this->authorize('create', \App\Models\User::class);
-
         return Inertia::render('Admin/Users/Create');
     }
 
     public function store(Request $request)
     {
         $this->authorize('create', \App\Models\User::class);
-
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255', 'unique:users,email'],
-            'password' => ['required', 'string', 'min:8'],
-            'role' => ['required', 'in:user,artist,publicer,admin'],
-            'is_banned' => ['nullable', 'boolean'],
-        ]);
-
-        $user = User::create([
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-            'password' => Hash::make($validated['password']),
-            'role' => $validated['role'],
-            'is_banned' => $request->boolean('is_banned', false),
-        ]);
-
-        return redirect()->route('admin.users.show', $user)->with('success', 'User created');
+        // ...
     }
+    */
 
     public function show(User $user): Response
     {
@@ -80,6 +75,22 @@ class UserController extends Controller
         $user->update($validated);
 
         return back()->with('success', 'User updated');
+    }
+
+    public function ban(User $user)
+    {
+        $this->authorize('update', $user);
+        $user->update(['is_banned' => true]);
+
+        return back()->with('success', 'User banned');
+    }
+
+    public function unban(User $user)
+    {
+        $this->authorize('update', $user);
+        $user->update(['is_banned' => false]);
+
+        return back()->with('success', 'User unbanned');
     }
 
     public function destroy(User $user)

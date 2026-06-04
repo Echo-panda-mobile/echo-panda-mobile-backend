@@ -56,12 +56,6 @@ export default function Authenticated({
                     label: 'Songs',
                     icon: 'M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z',
                 },
-                {
-                    href: route('admin.products.index'),
-                    pattern: 'admin.products.*',
-                    label: 'Products',
-                    icon: 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4',
-                },
             ],
         },
         {
@@ -84,18 +78,6 @@ export default function Authenticated({
                     pattern: 'admin.tags.*',
                     label: 'Tags',
                     icon: 'M5 7a2 2 0 012-2h8.586a2 2 0 011.414.586l4.414 4.414A2 2 0 0122 11.414V20a2 2 0 01-2 2h-8.586a2 2 0 01-1.414-.586L5.586 17.414A2 2 0 015 16V7zm4 2a1 1 0 100 2 1 1 0 000-2z',
-                },
-                {
-                    href: route('admin.featured.index'),
-                    pattern: 'admin.featured.*',
-                    label: 'Featured',
-                    icon: 'M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z',
-                },
-                {
-                    href: route('admin.analytics.index'),
-                    pattern: 'admin.analytics.*',
-                    label: 'Analytics',
-                    icon: 'M4 19V5m4 14v-8m4 8V9m4 10V3m4 16v-5',
                 },
             ],
         },

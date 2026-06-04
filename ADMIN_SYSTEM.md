@@ -4,7 +4,7 @@ This document summarizes the admin responsibilities, architecture, and implement
 
 **Purpose:** provide a single-file reference the team can use for architecture, docs, and implementation planning.
 
-**Scope:** full music platform admin system (artist & user management, content moderation, promotion, analytics, genres, reporting, deactivation).
+**Scope:** full music platform admin system (artist & user management, content moderation, genres, reporting, deactivation).
 
 ---
 
@@ -45,27 +45,6 @@ This document summarizes the admin responsibilities, architecture, and implement
 
 ---
 
-**Feature / Promotion System**
-
-- Feature songs on homepage
-- Feature artists on discovery page
-- Promote albums to trending lists
-- Pin content in categories or playlists
-
----
-
-**Analytics Dashboard (Admin)**
-
-- Total users / active users
-- Total artists
-- Total songs / albums uploaded
-- Most played songs
-- Trending artists
-- Growth charts (daily/weekly/monthly)
-- Storage usage (S3 / backend)
-
----
-
 **Genres & Categories Management**
 
 - Create / edit / delete genres
@@ -102,8 +81,6 @@ graph TD
   Albums[Albums]
   Genres[Genres]
   Reports[Reports]
-  Featured[Featured Content]
-  Analytics[Analytics]
 
   Admin --> Users
   Admin --> Artists
@@ -111,8 +88,6 @@ graph TD
   Admin --> Albums
   Admin --> Reports
   Admin --> Genres
-  Admin --> Featured
-  Admin --> Analytics
 
   Songs --> Genres
   Albums --> Songs
@@ -143,8 +118,6 @@ You will likely need the following roles and core tables to implement this clean
 - `albums`
 - `genres`
 - `reports`
-- `featured_items`
-- `analytics` (optional / computed)
 
 ---
 
@@ -153,7 +126,6 @@ You will likely need the following roles and core tables to implement this clean
 - Add admin routes and controllers (e.g. `Admin\ArtistController`, `Admin\SongController`, `Admin\ReportController`).
 - Implement middleware and policy checks for `admin` role.
 - Add audit logs for moderation actions.
-- Build dashboard widgets for analytics and featured content management.
 
 
 ---

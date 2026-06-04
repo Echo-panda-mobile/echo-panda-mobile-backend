@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -12,7 +13,14 @@ use Illuminate\Database\Eloquent\Relations\MorphMany;
 class Song extends Model
 {
     /** @use HasFactory<\Database\Factories\SongFactory> */
-    use HasFactory;
+    use HasFactory, SoftDeletes;
+
+    /**
+     * The accessors to append to the model's array form.
+     *
+     * @var array
+     */
+    protected $appends = ['cover_url'];
 
     /**
      * The attributes that are mass assignable.
@@ -63,6 +71,37 @@ class Song extends Model
             'is_active' => 'boolean',
             'published_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Get the cover image URL with multi-disk support.
+     */
+    public function getCoverUrlAttribute()
+    {
+        $path = $this->attributes['cover_key'] ?? null;
+        if (!$path) return null;
+
+        if (filter_var($path, FILTER_VALIDATE_URL)) {
+            return $path;
+        }
+
+        if (\Illuminate\Support\Facades\Storage::disk('public')->exists($path)) {
+            return \Illuminate\Support\Facades\Storage::disk('public')->url($path);
+        }
+
+        try {
+            return \Illuminate\Support\Facades\Storage::disk('s3')->temporaryUrl($path, now()->addMinutes(60));
+        } catch (\Exception $e) {
+            return \Illuminate\Support\Facades\Storage::disk('s3')->url($path);
+        }
+    }
+
+    /**
+     * Get the genre/category for the song.
+     */
+    public function genre(): BelongsTo
+    {
+        return $this->belongsTo(Genre::class, 'category_id');
     }
 
     /**

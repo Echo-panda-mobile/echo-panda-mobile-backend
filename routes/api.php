@@ -15,11 +15,8 @@ use App\Http\Controllers\Api\Streaming\StreamTicketController;
 use App\Http\Controllers\Api\ListenHistoryController;
 use App\Http\Controllers\Api\Mobile\MbArtistController;
 use App\Http\Controllers\Api\Mobile\MbFavoriteController;
-use App\Http\Controllers\Api\Mobile\MbGenreController;
 use App\Http\Controllers\Api\Mobile\MbPlaybackController;
-use App\Http\Controllers\Api\Mobile\MbTagController;
 use App\Http\Controllers\Api\PlaylistController;
-use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\SongController;
 use Illuminate\Support\Facades\Route;
@@ -34,8 +31,6 @@ Route::post('/firebase/session', [AuthController::class, 'firebaseLogin'])
 // Public Routes (no authentication required)
 Route::get('/genres', [GenreController::class, 'index'])->name('api.genres.index');
 Route::get('/tags', [TagController::class, 'index'])->name('api.tags.index');
-Route::get('/products', [ProductController::class, 'index'])->name('api.products.index');
-Route::get('/products/{product}', [ProductController::class, 'show'])->name('api.products.show');
 
 // Public Album and Song Routes (readable by everyone)
 Route::get('/albums', [AlbumController::class, 'index'])->name('api.albums.index');
@@ -50,8 +45,6 @@ Route::get('/genres', [\App\Http\Controllers\Api\GenreController::class, 'index'
 Route::get('/artists', [\App\Http\Controllers\Api\Artist\ArtistController::class, 'index'])->name('api.artists.index');
 Route::get('/artists/popular', [MbArtistController::class, 'popular'])->name('api.artists.popular');
 Route::get('/artists/{artist}/image-url', [\App\Http\Controllers\Api\Artist\ArtistController::class, 'imageUrl'])->name('api.artists.image-url');
-Route::get('/mb/genres', [MbGenreController::class, 'index'])->name('api.mb.genres.index');
-Route::get('/mb/tags', [MbTagController::class, 'index'])->name('api.mb.tags.index');
 
 // Protected Routes (require authentication)
 Route::middleware('auth:sanctum')->group(function () {
@@ -131,6 +124,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/listen-history', [ListenHistoryController::class, 'track'])->name('api.listen-history.track');
     Route::get('/listen-history', [ListenHistoryController::class, 'myHistory'])->name('api.listen-history.me');
 
+    // Reporting Routes
+    Route::post('/reports', [\App\Http\Controllers\Api\ReportController::class, 'store'])->name('api.reports.store');
+
     // Streaming Playback Routes
     Route::get('/songs/{song}/stream-ticket', [StreamTicketController::class, 'show'])->name('api.streaming.ticket');
     Route::post('/playback/progress', [PlaybackController::class, 'progress'])->name('api.playback.progress');
@@ -147,14 +143,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/playlists/{playlist}/songs/{song}', [PlaylistController::class, 'removeSong'])->name('api.playlists.remove-song');
     Route::get('/playlists/{playlist}/songs/{song}/exists', [PlaylistController::class, 'hasSong'])->name('api.playlists.has-song');
 
-    // Product Routes (protected)
-    Route::middleware('role:admin')->group(function () {
-        Route::post('/products', [ProductController::class, 'store'])
-            ->name('api.products.store');
-        Route::put('/products/{product}', [ProductController::class, 'update'])
-            ->name('api.products.update');
-        Route::delete('/products/{product}', [ProductController::class, 'destroy'])
-            ->name('api.products.destroy');
+    // AI Prompted Playlists
+    Route::prefix('ai-playlists')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Api\AiPlaylistController::class, 'index']);
+        Route::post('/generate', [\App\Http\Controllers\Api\AiPlaylistController::class, 'generate']);
+        Route::get('/{playlist}', [\App\Http\Controllers\Api\AiPlaylistController::class, 'show']);
+        Route::delete('/{playlist}', [\App\Http\Controllers\Api\AiPlaylistController::class, 'destroy']);
     });
 });
 

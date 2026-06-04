@@ -19,10 +19,13 @@ class Artist extends Model
     protected $fillable = [
         'user_id',
         'name',
-        'slug',
         'bio',
         'image_url',
         'cover_image_url',
+        'facebook_url',
+        'instagram_url',
+        'tiktok_url',
+        'youtube_url',
         'is_active',
         'verification_status',
         'verification_reason',
@@ -43,20 +46,52 @@ class Artist extends Model
     }
 
     /**
-     * Get the image_url, falling back to cover_image_url for backwards compatibility.
+     * Get the profile image URL with multi-disk support.
      */
-    public function getImageUrlAttribute()
+    public function getImageUrlAttribute($value)
     {
-        return $this->attributes['image_url'] ?? $this->attributes['cover_image_url'] ?? null;
+        $path = $value ?? $this->attributes['cover_image_url'] ?? null;
+        if (!$path) return null;
+
+        if (filter_var($path, FILTER_VALIDATE_URL)) {
+            return $path;
+        }
+
+        // Try public disk first
+        if (\Illuminate\Support\Facades\Storage::disk('public')->exists($path)) {
+            return \Illuminate\Support\Facades\Storage::disk('public')->url($path);
+        }
+
+        // Fallback to S3 with signed URL
+        try {
+            return \Illuminate\Support\Facades\Storage::disk('s3')->temporaryUrl($path, now()->addMinutes(60));
+        } catch (\Exception $e) {
+            return \Illuminate\Support\Facades\Storage::disk('s3')->url($path);
+        }
     }
 
     /**
-     * Set the image_url and also update cover_image_url.
+     * Get the cover image URL with multi-disk support.
      */
-    public function setImageUrlAttribute($value)
+    public function getCoverImageUrlAttribute($value)
     {
-        $this->attributes['image_url'] = $value;
-        $this->attributes['cover_image_url'] = $value;
+        if (!$value) return null;
+
+        if (filter_var($value, FILTER_VALIDATE_URL)) {
+            return $value;
+        }
+
+        // Try public disk first
+        if (\Illuminate\Support\Facades\Storage::disk('public')->exists($value)) {
+            return \Illuminate\Support\Facades\Storage::disk('public')->url($value);
+        }
+
+        // Fallback to S3 with signed URL
+        try {
+            return \Illuminate\Support\Facades\Storage::disk('s3')->temporaryUrl($value, now()->addMinutes(60));
+        } catch (\Exception $e) {
+            return \Illuminate\Support\Facades\Storage::disk('s3')->url($value);
+        }
     }
 
     /**

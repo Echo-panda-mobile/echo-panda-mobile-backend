@@ -20,15 +20,14 @@ else
 fi
 
 if [ ! -f .env ]; then
+    echo ".env file not found, copying .env.example..."
     cp .env.example .env
 fi
 
-php artisan key:generate --force
-
-# If not, generate it. This is crucial for Laravel's security features.
-if grep -qE '^APP_KEY=\s*$' .env || ! grep -q '^APP_KEY=' .env; then
+# Generate key only if it doesn't exist to avoid invalidating sessions on every restart
+if [ -z "$(grep APP_KEY .env | cut -d'=' -f2)" ]; then
     echo "Generating application key..."
-    php artisan key:generate
+    php artisan key:generate --force
 else
     echo "Application key already exists."
 fi
@@ -36,12 +35,9 @@ fi
 # php artisan key:generate
 
 # Check if node_modules directory exists and run npm install if not
-if [ ! -d "node_modules" ]; then
-    echo "Running npm install..."
-    npm install
-else
-    echo "node_modules directory already exists. Skipping npm install."
-fi
+# In dev, we might want to always run it or check package.json
+echo "Running npm install to ensure all dependencies are present..."
+npm install
 php artisan migrate --force
 
 # Run npm build if node_modules exists, to compile assets.
@@ -52,7 +48,7 @@ else
     echo "node_modules not found, skipping npm run build."
 fi
 
-chown -R $USER:www-data storage bootstrap/cache
+chown -R www-data:www-data storage bootstrap/cache
 chmod -R 775 storage bootstrap/cache
 # Execute the main command passed to the script (e.g., "php-fpm").
 exec "$@"

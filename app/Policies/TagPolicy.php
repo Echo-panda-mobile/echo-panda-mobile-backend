@@ -3,9 +3,9 @@
 namespace App\Policies;
 
 use App\Models\User;
-use App\Models\FeaturedItem;
+use App\Models\Tag;
 
-class FeaturedItemPolicy
+class TagPolicy
 {
     public function viewAny(?User $user)
     {
@@ -17,7 +17,12 @@ class FeaturedItemPolicy
         return $user->role === 'admin';
     }
 
-    public function delete(User $user, FeaturedItem $item)
+    public function update(User $user, Tag $tag)
+    {
+        return $user->role === 'admin';
+    }
+
+    public function delete(User $user, Tag $tag)
     {
         return $user->role === 'admin';
     }

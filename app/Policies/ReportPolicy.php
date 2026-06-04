@@ -17,6 +17,11 @@ class ReportPolicy
         return true;
     }
 
+    public function update(User $user, Report $report)
+    {
+        return $user->role === 'admin';
+    }
+
     public function delete(User $user, Report $report)
     {
         return $user->role === 'admin';

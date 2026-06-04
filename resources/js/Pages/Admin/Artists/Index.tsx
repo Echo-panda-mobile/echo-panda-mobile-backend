@@ -8,6 +8,8 @@ interface Props extends PageProps {
 }
 
 export default function Index({ artists }: Props) {
+    const artistsData = artists?.data || [];
+
     const handleDelete = (id: number) => {
         if (confirm('Delete this artist?')) {
             router.delete(route('admin.artists.destroy', id));
@@ -38,7 +40,7 @@ export default function Index({ artists }: Props) {
 
                 <div className="overflow-hidden rounded-[1.75rem] border border-white/10 bg-slate-950/50 shadow-2xl shadow-slate-950/20 backdrop-blur-sm">
                     <div className="border-b border-white/10 px-6 py-4 text-sm text-slate-300">
-                        {artists.data.length} artists in the system
+                        {artistsData.length} artists in the system
                     </div>
                     <div className="overflow-x-auto">
                         <table className="min-w-full divide-y divide-white/10">
@@ -51,12 +53,12 @@ export default function Index({ artists }: Props) {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-white/10">
-                                {artists.data.length === 0 ? (
+                                {artistsData.length === 0 ? (
                                     <tr>
                                         <td colSpan={4} className="px-6 py-10 text-center text-sm text-slate-400">No artists</td>
                                     </tr>
                                 ) : (
-                                    artists.data.map((a) => (
+                                    artistsData.map((a: any) => (
                                         <tr key={a.id} className="bg-transparent transition hover:bg-white/5">
                                             <td className="px-6 py-4 text-sm font-semibold text-white">{a.name}</td>
                                             <td className="px-6 py-4 text-sm text-slate-300">

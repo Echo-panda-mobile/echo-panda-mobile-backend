@@ -2,7 +2,6 @@
 
 use App\Models\Album;
 use App\Models\Artist;
-use App\Models\FeaturedItem;
 use App\Models\Favorite;
 use App\Models\ListenHistory;
 use App\Models\Report;
@@ -10,14 +9,11 @@ use App\Models\Song;
 use App\Models\User;
 use App\Models\Genre;
 use App\Models\Tag;
-use App\Http\Controllers\Admin\AnalyticsController as AdminAnalyticsController;
 use App\Http\Controllers\Admin\ArtistController as AdminArtistController;
-use App\Http\Controllers\Admin\FeaturedController as AdminFeaturedController;
 use App\Http\Controllers\Admin\GenreController as AdminGenreController;
 use App\Http\Controllers\Admin\TagController as AdminTagController;
 use App\Http\Controllers\Admin\ReportController as AdminReportController;
 use App\Http\Controllers\Admin\AlbumController as AdminAlbumController;
-use App\Http\Controllers\Admin\ProductController as AdminProductController;
 use App\Http\Controllers\Admin\SongController as AdminSongController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\ProfileController;
@@ -153,6 +149,17 @@ Route::get('/dashboard', function () {
         ])
         ->values();
 
+    $topGenres = Genre::query()
+        ->withCount('songs')
+        ->orderByDesc('songs_count')
+        ->limit(5)
+        ->get()
+        ->map(fn (Genre $genre) => [
+            'id' => $genre->id,
+            'name' => $genre->name,
+            'songs_count' => $genre->songs_count,
+        ]);
+
     $dashboardMetrics = [
         'totals' => [
             'total_users' => User::count(),
@@ -168,7 +175,6 @@ Route::get('/dashboard', function () {
         ],
         'moderation' => [
             'reports_open' => Report::count(),
-            'featured_items' => FeaturedItem::count(),
             'favorites_total' => Favorite::count(),
         ],
         'listening' => [
@@ -190,6 +196,7 @@ Route::get('/dashboard', function () {
         ] : null,
         'most_favorite_artist' => $mostFavoriteArtist,
         'trending_artists' => $trendingArtists,
+        'top_genres' => $topGenres,
         'latest_users' => $latestUsers,
         'latest_artists' => $latestArtists,
         'latest_songs' => $latestSongs,
@@ -209,14 +216,14 @@ Route::middleware('auth')->group(function () {
     // Admin Routes
     Route::prefix('admin')->name('admin.')->middleware('role:admin')->group(function () {
         Route::resource('artists', AdminArtistController::class);
-        Route::resource('users', AdminUserController::class)->only(['index', 'show', 'create', 'store', 'update', 'destroy']);
+        Route::resource('users', AdminUserController::class)->only(['index', 'show', 'create', 'update', 'destroy']);
+        Route::post('users/{user}/ban', [AdminUserController::class, 'ban'])->name('users.ban');
+        Route::post('users/{user}/unban', [AdminUserController::class, 'unban'])->name('users.unban');
         Route::resource('reports', AdminReportController::class)->only(['index', 'show', 'destroy']);
+        Route::post('reports/{report}/action', [AdminReportController::class, 'action'])->name('reports.action');
         Route::get('moderation', [AdminReportController::class, 'index'])->name('moderation.index');
         Route::resource('genres', AdminGenreController::class)->only(['index', 'store', 'update', 'destroy']);
         Route::resource('tags', AdminTagController::class)->only(['index', 'store', 'update', 'destroy']);
-        Route::resource('featured', AdminFeaturedController::class)->only(['index', 'store', 'destroy']);
-        Route::get('analytics', [AdminAnalyticsController::class, 'index'])->name('analytics.index');
-        Route::resource('products', AdminProductController::class);
         Route::resource('albums', AdminAlbumController::class);
         Route::post('albums/{album}/approve', [AdminAlbumController::class, 'approve'])->name('albums.approve');
         Route::post('albums/{album}/hide', [AdminAlbumController::class, 'hide'])->name('albums.hide');
