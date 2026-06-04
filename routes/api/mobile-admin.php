@@ -27,11 +27,15 @@ Route::middleware(['auth:sanctum', 'role:admin'])
         Route::get('tags', [MbAdminTagController::class, 'index'])->name('tags.index');
         Route::post('tags', [MbAdminTagController::class, 'store'])->name('tags.store');
         Route::put('tags/{tag}', [MbAdminTagController::class, 'update'])->name('tags.update');
+        Route::patch('tags/{tag}/status', [MbAdminTagController::class, 'updateStatus'])->name('tags.status');
+        Route::patch('tags/{tag}/show-as-row', [MbAdminTagController::class, 'updateShowAsRow'])->name('tags.show-as-row');
         Route::delete('tags/{tag}', [MbAdminTagController::class, 'destroy'])->name('tags.destroy');
 
         Route::get('genres', [MbAdminGenreController::class, 'index'])->name('genres.index');
         Route::post('genres', [MbAdminGenreController::class, 'store'])->name('genres.store');
         Route::put('genres/{genre}', [MbAdminGenreController::class, 'update'])->name('genres.update');
+        Route::patch('genres/{genre}/status', [MbAdminGenreController::class, 'updateStatus'])->name('genres.status');
+        Route::patch('genres/{genre}/show-as-row', [MbAdminGenreController::class, 'updateShowAsRow'])->name('genres.show-as-row');
         Route::delete('genres/{genre}', [MbAdminGenreController::class, 'destroy'])->name('genres.destroy');
 
         Route::get('albums', [MbAdminAlbumController::class, 'index'])->name('albums.index');
