@@ -55,6 +55,7 @@ class AlbumController extends Controller
             'release_date' => $album->release_date,
             'description' => $album->description,
             'release_status' => $album->release_status,
+            'is_active' => (bool) ($album->is_active ?? true),
             'scheduled_at' => $album->scheduled_at,
             'cover_key' => $album->cover_key,
             'cover_url' => $coverUrl,

@@ -51,6 +51,7 @@ class SongController extends Controller
             'processing_status' => $song->processing_status,
             'published_at' => $song->published_at,
             'play_count' => $song->play_count,
+            'is_active' => (bool) ($song->is_active ?? true),
             'created_at' => $song->created_at,
             'updated_at' => $song->updated_at,
             'album' => $song->album,

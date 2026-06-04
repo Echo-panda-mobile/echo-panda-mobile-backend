@@ -32,6 +32,7 @@ class Song extends Model
         'track_number',
         'lyrics',
         'category_id',
+        'tag_id',
         'mood',
         'song_type',
         'bpm',
@@ -78,6 +79,14 @@ class Song extends Model
     public function artistModel(): BelongsTo
     {
         return $this->belongsTo(Artist::class, 'artist_id');
+    }
+
+    /**
+     * Get the tag assigned to this song (optional).
+     */
+    public function tag(): BelongsTo
+    {
+        return $this->belongsTo(Tag::class);
     }
 
     /**

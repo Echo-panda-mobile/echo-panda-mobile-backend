@@ -26,6 +26,7 @@ class Album extends Model
         'release_date',
         'description',
         'release_status',
+        'is_active',
         'scheduled_at',
         'cover_key',
     ];
@@ -40,6 +41,7 @@ class Album extends Model
         return [
             'release_date' => 'date',
             'scheduled_at' => 'datetime',
+            'is_active' => 'boolean',
         ];
     }
 

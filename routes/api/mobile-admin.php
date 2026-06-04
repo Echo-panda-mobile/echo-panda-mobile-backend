@@ -40,10 +40,12 @@ Route::middleware(['auth:sanctum', 'role:admin'])
 
         Route::get('albums', [MbAdminAlbumController::class, 'index'])->name('albums.index');
         Route::put('albums/{album}', [MbAdminAlbumController::class, 'update'])->name('albums.update');
+        Route::patch('albums/{album}/status', [MbAdminAlbumController::class, 'updateStatus'])->name('albums.status');
         Route::post('albums/{album}/approve', [MbAdminAlbumController::class, 'approve'])->name('albums.approve');
         Route::post('albums/{album}/hide', [MbAdminAlbumController::class, 'hide'])->name('albums.hide');
         Route::post('albums/{album}/report', [MbAdminAlbumController::class, 'report'])->name('albums.report');
 
+        Route::patch('songs/{song}/status', [MbAdminSongController::class, 'updateStatus'])->name('songs.status');
         Route::post('songs/{song}/approve', [MbAdminSongController::class, 'approve'])->name('songs.approve');
         Route::post('songs/{song}/hide', [MbAdminSongController::class, 'hide'])->name('songs.hide');
         Route::post('songs/{song}/report', [MbAdminSongController::class, 'report'])->name('songs.report');
