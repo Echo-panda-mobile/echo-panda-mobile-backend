@@ -7,6 +7,7 @@ use App\Http\Requests\StoreSongRequest;
 use App\Http\Requests\UpdateSongRequest;
 use App\Jobs\ProcessUploadedSong;
 use App\Models\Song;
+use App\Models\Genre;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -34,8 +35,17 @@ class SongController extends Controller
             'duration' => $song->duration,
             'track_number' => $song->track_number,
             'lyrics' => $song->lyrics,
-            'audio_url' => $song->original_key,
+            'category_id' => $song->category_id,
+            'genre' => $song->category_id ? Genre::find($song->category_id) : null,
+            'mood' => $song->mood,
+            'song_type' => $song->song_type,
+            'bpm' => $song->bpm,
+            'is_explicit' => (bool) $song->is_explicit,
+            'featured_artists' => $song->featured_artists,
+            'audio_url' => $song->original_key ?: $song->variant_key_320 ?: $song->variant_key_128,
             'original_key' => $song->original_key,
+            'variant_key_320' => $song->variant_key_320,
+            'variant_key_128' => $song->variant_key_128,
             'cover_key' => $song->cover_key,
             'preview_key' => $song->preview_key,
             'processing_status' => $song->processing_status,
@@ -45,6 +55,31 @@ class SongController extends Controller
             'updated_at' => $song->updated_at,
             'album' => $song->album,
         ];
+    }
+
+    protected function resolveGenreId(mixed $value): ?int
+    {
+        if (empty($value)) {
+            return null;
+        }
+
+        if (is_numeric($value)) {
+            return (int) $value;
+        }
+
+        // Try to find by slug
+        $genre = Genre::where('slug', $value)->first();
+        if ($genre) {
+            return $genre->id;
+        }
+
+        // Try to find by name
+        $genre = Genre::where('name', 'like', $value)->first();
+        if ($genre) {
+            return $genre->id;
+        }
+
+        return null;
     }
 
     /**
@@ -103,6 +138,7 @@ class SongController extends Controller
         }
 
         $payload = $request->validated();
+        $payload['category_id'] = $this->resolveGenreId($payload['category_id'] ?? null);
         $payload['artist_id'] = $userArtist->id;
         $payload['artist'] = $userArtist->name;
         $payload['processing_status'] = ! empty($payload['original_key']) ? 'uploaded' : ($payload['processing_status'] ?? 'draft');
@@ -138,6 +174,11 @@ class SongController extends Controller
         $this->authorize('update', $song);
 
         $validated = $request->validated();
+
+        if (array_key_exists('category_id', $validated)) {
+            $validated['category_id'] = $this->resolveGenreId($validated['category_id']);
+        }
+
         $song->update($validated);
         $song->load(['album', 'artistModel']);
 

@@ -59,13 +59,18 @@ class StreamTicketController extends Controller
      */
     public function signedUrl(Request $request, Song $song): JsonResponse
     {
-        abort_unless($song->is_active, 404, 'Song is not available.');
+        // Allow artists to preview their own songs even if not active
+        if (! $song->is_active) {
+            $user = $request->user();
+            $artist = $user?->artist;
+            abort_unless($artist && (int) $song->artist_id === (int) $artist->id, 404, 'Song is not available.');
+        }
 
-        $key = $song->original_key;
-        abort_if(! $key, 404, 'Requested audio is not available.');
+        $key = $song->original_key ?: $song->variant_key_320 ?: $song->variant_key_128;
+        abort_if(! $key, 404, 'Requested audio source key is missing in database.');
 
         $url = $this->resolveSignedUrl($key, ['ResponseContentType' => 'audio/mpeg']);
-        abort_if(! $url, 404, 'Requested audio is not available.');
+        abort_if(! $url, 404, 'Failed to generate signed URL for asset.');
 
         return response()->json([
             'song_id' => $song->id,

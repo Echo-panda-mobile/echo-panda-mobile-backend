@@ -8,6 +8,9 @@ use Illuminate\Http\JsonResponse;
 
 class GenreController extends Controller
 {
+    /**
+     * Display a listing of genres.
+     */
     public function index(): JsonResponse
     {
         $genres = Genre::query()

@@ -9,7 +9,12 @@ cd /var/www/html
 # A bind mount can contain an empty/incomplete vendor folder.
 if [ ! -f "vendor/autoload.php" ]; then
     echo "Running composer install..."
-    composer install
+    composer install --no-interaction --no-ansi 2>&1 || true
+    # If composer still failed, show vendor status
+    if [ ! -f "vendor/autoload.php" ]; then
+        echo "Composer install may have failed, checking vendor directory..."
+        ls -la vendor/ 2>/dev/null | head -20 || echo "vendor directory is empty"
+    fi
 else
     echo "vendor/autoload.php exists. Skipping composer install."
 fi
