@@ -14,8 +14,9 @@ RUN apt-get update && apt-get install -y \
     libonig-dev \
     build-essential \
     ffmpeg \
+    libsodium-dev \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install -j$(nproc) gd zip pdo pdo_mysql pgsql pdo_pgsql \
+    && docker-php-ext-install -j$(nproc) gd zip pdo pdo_mysql pgsql pdo_pgsql sodium \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
