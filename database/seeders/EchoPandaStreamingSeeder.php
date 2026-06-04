@@ -49,6 +49,7 @@ class EchoPandaStreamingSeeder extends Seeder
                 'lyrics' => null,
                 'audio_url' => null,
                 'lyrics_url' => null,
+                'original_key' => 'audio/320/midnight-neon/neon-river.mp3',
                 'file_size_bytes' => 9345021,
                 'mime_type' => 'audio/mpeg',
                 'variant_key_128' => 'audio/128/midnight-neon/neon-river.mp3',

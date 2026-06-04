@@ -6,6 +6,8 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\FavoriteController;
 use App\Http\Controllers\Api\Artist\AnalyticsController;
 use App\Http\Controllers\Api\Artist\UploadController;
+use App\Http\Controllers\Api\GenreController;
+use App\Http\Controllers\Api\TagController;
 use App\Http\Controllers\Api\Streaming\AudioStreamController;
 use App\Http\Controllers\Api\Streaming\LyricsController;
 use App\Http\Controllers\Api\Streaming\PlaybackController;
@@ -28,6 +30,8 @@ Route::post('/firebase/session', [AuthController::class, 'firebaseLogin'])
     ->name('api.firebase.session');
 
 // Public Routes (no authentication required)
+Route::get('/genres', [GenreController::class, 'index'])->name('api.genres.index');
+Route::get('/tags', [TagController::class, 'index'])->name('api.tags.index');
 Route::get('/products', [ProductController::class, 'index'])->name('api.products.index');
 Route::get('/products/{product}', [ProductController::class, 'show'])->name('api.products.show');
 
@@ -40,6 +44,7 @@ Route::get('/songs', [SongController::class, 'index'])->name('api.songs.index');
 Route::get('/songs/{song}', [SongController::class, 'show'])->name('api.songs.show');
 Route::get('/stats/most-played-songs', [ListenHistoryController::class, 'mostPlayedSongs'])->name('api.stats.most-played-songs');
 Route::get('/stats/most-played-albums', [ListenHistoryController::class, 'mostPlayedAlbums'])->name('api.stats.most-played-albums');
+Route::get('/genres', [\App\Http\Controllers\Api\GenreController::class, 'index'])->name('api.genres.index');
 Route::get('/artists', [\App\Http\Controllers\Api\Artist\ArtistController::class, 'index'])->name('api.artists.index');
 Route::get('/artists/popular', [MbArtistController::class, 'popular'])->name('api.artists.popular');
 Route::get('/artists/{artist}/image-url', [\App\Http\Controllers\Api\Artist\ArtistController::class, 'imageUrl'])->name('api.artists.image-url');
@@ -49,7 +54,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // User Authentication Routes
     Route::post('/logout', [AuthController::class, 'logout'])->name('api.logout');
     Route::get('/me', [AuthController::class, 'me'])->name('api.me');
-    
+
     // User Management (admin only)
     Route::middleware('role:admin')->group(function () {
         Route::get('/users/by-role', [AuthController::class, 'usersByRole'])
@@ -190,4 +195,3 @@ if (app()->environment('local') || app()->environment('development') || env('APP
         return response()->json(['token' => $token, 'user_id' => $user->id, 'artist_id' => $artist->id]);
     });
 }
-
