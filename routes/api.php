@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\FavoriteController;
 use App\Http\Controllers\Api\Artist\AnalyticsController;
 use App\Http\Controllers\Api\Artist\UploadController;
 use App\Http\Controllers\Api\GenreController;
+use App\Http\Controllers\Api\TagController;
 use App\Http\Controllers\Api\Streaming\AudioStreamController;
 use App\Http\Controllers\Api\Streaming\LyricsController;
 use App\Http\Controllers\Api\Streaming\PlaybackController;
@@ -30,6 +31,7 @@ Route::post('/firebase/session', [AuthController::class, 'firebaseLogin'])
 
 // Public Routes (no authentication required)
 Route::get('/genres', [GenreController::class, 'index'])->name('api.genres.index');
+Route::get('/tags', [TagController::class, 'index'])->name('api.tags.index');
 Route::get('/products', [ProductController::class, 'index'])->name('api.products.index');
 Route::get('/products/{product}', [ProductController::class, 'show'])->name('api.products.show');
 
