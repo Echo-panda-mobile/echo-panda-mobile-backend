@@ -50,7 +50,7 @@ class UploadController extends Controller
     protected function mediaSpecForPurpose(string $purpose): array
     {
         return match ($purpose) {
-            'album_cover', 'artist_image' => [
+            'album_cover', 'song_cover', 'artist_image' => [
                 'folder' => 'images',
                 'max_bytes' => 5 * 1024 * 1024,
             ],
@@ -103,10 +103,10 @@ class UploadController extends Controller
     public function presignMedia(Request $request): JsonResponse
     {
         $request->validate([
-            'purpose' => 'required|in:album_cover,song_audio,artist_image,song_lyrics',
-            'filename' => 'required|string|max:255',
-            'content_type' => 'required|string|max:255',
-            'size' => 'required|integer|min:1',
+            'purpose' => ['required', 'string', 'in:album_cover,song_cover,song_audio,artist_image,song_lyrics'],
+            'filename' => ['required', 'string', 'max:255'],
+            'content_type' => ['required', 'string', 'max:255'],
+            'size' => ['required', 'integer', 'min:1'],
         ]);
 
         $artist = $this->artistForRequest($request);
@@ -132,6 +132,7 @@ class UploadController extends Controller
 
         $key = match ($purpose) {
             'album_cover' => "images/album-covers/{$artistSlug}/{$uuid}.{$extension}",
+            'song_cover' => "images/song-covers/{$artistSlug}/{$uuid}.{$extension}",
             'artist_image' => "images/artist-images/{$artistSlug}/{$uuid}.{$extension}",
             'song_audio' => "audio/original/{$artistSlug}/{$uuid}.{$extension}",
             'song_lyrics' => "lyrics/synced/{$artistSlug}/{$uuid}.{$extension}",
@@ -173,8 +174,8 @@ class UploadController extends Controller
     public function media(Request $request): JsonResponse
     {
         $request->validate([
-            'file' => 'required|file',
-            'purpose' => 'required|in:album_cover,song_audio,artist_image,song_lyrics',
+            'file' => ['required', 'file'],
+            'purpose' => ['required', 'string', 'in:album_cover,song_cover,song_audio,artist_image,song_lyrics'],
         ]);
 
         $artist = $this->artistForRequest($request);
@@ -185,7 +186,7 @@ class UploadController extends Controller
         $file = $request->file('file');
         $purpose = $request->string('purpose')->toString();
 
-        if (in_array($purpose, ['album_cover', 'artist_image'], true)) {
+        if (in_array($purpose, ['album_cover', 'song_cover', 'artist_image'], true)) {
             $request->validate([
                 'file' => 'image|max:2048',
             ]);
@@ -197,6 +198,7 @@ class UploadController extends Controller
 
         $folder = match ($purpose) {
             'album_cover' => 'images/album-covers',
+            'song_cover' => 'images/song-covers',
             'artist_image' => 'images/artist-images',
             'song_audio' => 'audio/original',
             'song_lyrics' => 'lyrics/synced',

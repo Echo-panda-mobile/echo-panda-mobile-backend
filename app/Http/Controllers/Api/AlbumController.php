@@ -60,7 +60,18 @@ class AlbumController extends Controller
             'cover_url' => $coverUrl,
             'created_at' => $album->created_at,
             'updated_at' => $album->updated_at,
-            'songs' => $album->songs,
+            'songs' => $album->songs->map(function ($song) {
+                return [
+                    'id' => $song->id,
+                    'title' => $song->title,
+                    'duration' => $song->duration,
+                    'track_number' => $song->track_number,
+                    'audio_url' => $song->original_key ?: $song->variant_key_320 ?: $song->variant_key_128,
+                    'original_key' => $song->original_key,
+                    'cover_key' => $song->cover_key,
+                    'processing_status' => $song->processing_status,
+                ];
+            }),
         ];
     }
 
