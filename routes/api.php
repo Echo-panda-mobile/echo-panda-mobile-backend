@@ -46,6 +46,7 @@ Route::get('/stats/most-played-songs', [ListenHistoryController::class, 'mostPla
 Route::get('/stats/most-played-albums', [ListenHistoryController::class, 'mostPlayedAlbums'])->name('api.stats.most-played-albums');
 Route::get('/genres', [\App\Http\Controllers\Api\GenreController::class, 'index'])->name('api.genres.index');
 Route::get('/artists', [\App\Http\Controllers\Api\Artist\ArtistController::class, 'index'])->name('api.artists.index');
+Route::get('/artists/popular', [MbArtistController::class, 'popular'])->name('api.artists.popular');
 Route::get('/artists/{artist}/image-url', [\App\Http\Controllers\Api\Artist\ArtistController::class, 'imageUrl'])->name('api.artists.image-url');
 
 // Protected Routes (require authentication)
@@ -152,6 +153,8 @@ Route::middleware('auth:sanctum')->group(function () {
             ->name('api.products.destroy');
     });
 });
+
+require __DIR__.'/api/mobile-admin.php';
 
 Route::get('/stream/{song}/{quality}', [AudioStreamController::class, 'stream'])
     ->whereIn('quality', ['128', '320'])
