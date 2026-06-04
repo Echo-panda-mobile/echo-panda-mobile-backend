@@ -154,6 +154,8 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 });
 
+require __DIR__.'/api/mobile-admin.php';
+
 Route::get('/stream/{song}/{quality}', [AudioStreamController::class, 'stream'])
     ->whereIn('quality', ['128', '320'])
     ->middleware(['throttle:120,1', 'require.range'])
