@@ -15,7 +15,9 @@ use App\Http\Controllers\Api\Streaming\StreamTicketController;
 use App\Http\Controllers\Api\ListenHistoryController;
 use App\Http\Controllers\Api\Mobile\MbArtistController;
 use App\Http\Controllers\Api\Mobile\MbFavoriteController;
+use App\Http\Controllers\Api\Mobile\MbGenreController;
 use App\Http\Controllers\Api\Mobile\MbPlaybackController;
+use App\Http\Controllers\Api\Mobile\MbTagController;
 use App\Http\Controllers\Api\PlaylistController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\ProfileController;
@@ -48,6 +50,8 @@ Route::get('/genres', [\App\Http\Controllers\Api\GenreController::class, 'index'
 Route::get('/artists', [\App\Http\Controllers\Api\Artist\ArtistController::class, 'index'])->name('api.artists.index');
 Route::get('/artists/popular', [MbArtistController::class, 'popular'])->name('api.artists.popular');
 Route::get('/artists/{artist}/image-url', [\App\Http\Controllers\Api\Artist\ArtistController::class, 'imageUrl'])->name('api.artists.image-url');
+Route::get('/mb/genres', [MbGenreController::class, 'index'])->name('api.mb.genres.index');
+Route::get('/mb/tags', [MbTagController::class, 'index'])->name('api.mb.tags.index');
 
 // Protected Routes (require authentication)
 Route::middleware('auth:sanctum')->group(function () {
