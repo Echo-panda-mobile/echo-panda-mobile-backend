@@ -105,6 +105,17 @@ class SongController extends Controller
             $query->where('album_id', $request->get('album_id'));
         }
 
+        // Filter by genre (category) or tag
+        if ($request->filled('category_id')) {
+            $query->where('category_id', $request->get('category_id'));
+        }
+
+        if ($request->filled('tag_id')) {
+            $query->where('tag_id', $request->get('tag_id'));
+        }
+
+        $query->where('is_active', true);
+
         // Sort by track number or latest
         $sortBy = $request->get('sort_by', 'track_number');
         if ($sortBy === 'latest') {
