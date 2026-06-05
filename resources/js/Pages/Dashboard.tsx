@@ -4,12 +4,12 @@ import { PageProps } from '@/types';
 import { ReactNode } from 'react';
 import {
     FaUsers,
-    FaMusic,
-    FaLayerGroup,
-    FaShieldHalved,
     FaStar,
-    FaCompactDisc
-} from "react-icons/fa6";
+    FaMusic,
+    FaCompactDisc,
+    FaLayerGroup,
+    FaShieldAlt
+} from "react-icons/fa";
 
 type DashboardMetrics = {
     totals: {
@@ -57,7 +57,7 @@ export default function Dashboard() {
         { label: 'Songs Uploaded', value: metrics.totals.total_songs.toLocaleString(), tone: 'from-amber-500/20 to-amber-500/5 text-amber-400 border-amber-500/30', note: `${metrics.totals.active_songs.toLocaleString()} active`, icon: <FaMusic size={16} />, colorRail: 'bg-amber-500' },
         { label: 'Albums Published', value: metrics.totals.total_albums.toLocaleString(), tone: 'from-emerald-500/20 to-emerald-500/5 text-emerald-400 border-emerald-500/30', note: `${metrics.totals.published_albums.toLocaleString()} published`, icon: <FaCompactDisc size={16} />, colorRail: 'bg-emerald-500' },
         { label: 'Categories', value: metrics.totals.total_categories.toLocaleString(), tone: 'from-indigo-500/20 to-indigo-500/5 text-indigo-400 border-indigo-500/30', note: 'Genre taxonomy', icon: <FaLayerGroup size={16} />, colorRail: 'bg-indigo-500' },
-        { label: 'Open Reports', value: metrics.moderation.reports_open.toLocaleString(), tone: 'from-rose-500/20 to-rose-500/5 text-rose-400 border-rose-500/30', note: 'Needs moderation', icon: <FaShieldHalved size={16} />, colorRail: 'bg-rose-500' },
+        { label: 'Open Reports', value: metrics.moderation.reports_open.toLocaleString(), tone: 'from-rose-500/20 to-rose-500/5 text-rose-400 border-rose-500/30', note: 'Needs moderation', icon: <FaShieldAlt size={16} />, colorRail: 'bg-rose-500' },
     ];
 
     return (
@@ -77,11 +77,11 @@ export default function Dashboard() {
                                 Echo Panda Control Deck
                             </div>
                             <h2 className="text-3xl font-black tracking-tight text-white lg:text-5xl leading-tight">
-                                Moderate, feature, and grow the<br />
+                                Moderate and grow the<br/>
                                 <span className="bg-gradient-to-r from-cyan-400 to-indigo-400 bg-clip-text text-transparent">platform from one dashboard.</span>
                             </h2>
                             <p className="text-sm leading-relaxed text-slate-400">
-                                This admin surface is built around the Echo Panda theme: deep night tones, neon accent rails, and clear command cards for artist operations, moderation, promotion, and analytics.
+                                This admin surface is built around the Echo Panda theme: deep night tones, neon accent rails, and clear command cards for artist operations, moderation, and catalog control.
                             </p>
                             <div className="flex flex-wrap gap-3 pt-2">
                                 <Link href={route('admin.artists.index')} className="rounded-xl bg-white text-slate-950 font-bold px-5 py-3 text-xs uppercase tracking-wider transition hover:bg-cyan-400 active:scale-98">

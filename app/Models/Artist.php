@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Filesystem\FilesystemAdapter;
+use Illuminate\Support\Facades\Storage;
 
 class Artist extends Model
 {
@@ -19,6 +21,7 @@ class Artist extends Model
     protected $fillable = [
         'user_id',
         'name',
+        'slug',
         'bio',
         'image_url',
         'cover_image_url',
@@ -48,7 +51,7 @@ class Artist extends Model
     /**
      * Get the profile image URL with multi-disk support.
      */
-    public function getImageUrlAttribute($value)
+    public function getImageUrlAttribute(?string $value): ?string
     {
         $path = $value ?? $this->attributes['cover_image_url'] ?? null;
         if (!$path) return null;
@@ -58,22 +61,30 @@ class Artist extends Model
         }
 
         // Try public disk first
-        if (\Illuminate\Support\Facades\Storage::disk('public')->exists($path)) {
-            return \Illuminate\Support\Facades\Storage::disk('public')->url($path);
+        /** @var FilesystemAdapter $publicDisk */
+        $publicDisk = Storage::disk('public');
+        if ($publicDisk->exists($path)) {
+            return $publicDisk->url($path);
         }
 
         // Fallback to S3 with signed URL
         try {
-            return \Illuminate\Support\Facades\Storage::disk('s3')->temporaryUrl($path, now()->addMinutes(60));
+            /** @var FilesystemAdapter $s3Disk */
+            $s3Disk = Storage::disk('s3');
+
+            return $s3Disk->temporaryUrl($path, now()->addMinutes(60));
         } catch (\Exception $e) {
-            return \Illuminate\Support\Facades\Storage::disk('s3')->url($path);
+            /** @var FilesystemAdapter $s3Disk */
+            $s3Disk = Storage::disk('s3');
+
+            return $s3Disk->url($path);
         }
     }
 
     /**
      * Get the cover image URL with multi-disk support.
      */
-    public function getCoverImageUrlAttribute($value)
+    public function getCoverImageUrlAttribute(?string $value): ?string
     {
         if (!$value) return null;
 
@@ -82,15 +93,23 @@ class Artist extends Model
         }
 
         // Try public disk first
-        if (\Illuminate\Support\Facades\Storage::disk('public')->exists($value)) {
-            return \Illuminate\Support\Facades\Storage::disk('public')->url($value);
+        /** @var FilesystemAdapter $publicDisk */
+        $publicDisk = Storage::disk('public');
+        if ($publicDisk->exists($value)) {
+            return $publicDisk->url($value);
         }
 
         // Fallback to S3 with signed URL
         try {
-            return \Illuminate\Support\Facades\Storage::disk('s3')->temporaryUrl($value, now()->addMinutes(60));
+            /** @var FilesystemAdapter $s3Disk */
+            $s3Disk = Storage::disk('s3');
+
+            return $s3Disk->temporaryUrl($value, now()->addMinutes(60));
         } catch (\Exception $e) {
-            return \Illuminate\Support\Facades\Storage::disk('s3')->url($value);
+            /** @var FilesystemAdapter $s3Disk */
+            $s3Disk = Storage::disk('s3');
+
+            return $s3Disk->url($value);
         }
     }
 

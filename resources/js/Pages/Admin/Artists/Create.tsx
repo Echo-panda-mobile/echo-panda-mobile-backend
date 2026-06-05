@@ -113,7 +113,7 @@ export default function Create({ auth }: PageProps) {
                             </h3>
                             <div className="grid gap-6 md:grid-cols-2">
                                 <div className="space-y-2">
-                                    <label className={labelClasses}>Facebook URL</label>
+                                    <label className={labelClasses}>Facebook URL (Optional)</label>
                                     <input
                                         value={data.facebook_url}
                                         onChange={(e) => setData('facebook_url', e.target.value)}
@@ -123,7 +123,7 @@ export default function Create({ auth }: PageProps) {
                                     {errors.facebook_url && <div className="text-sm text-rose-400 font-medium">{errors.facebook_url}</div>}
                                 </div>
                                 <div className="space-y-2">
-                                    <label className={labelClasses}>Instagram URL</label>
+                                    <label className={labelClasses}>Instagram URL (Optional)</label>
                                     <input
                                         value={data.instagram_url}
                                         onChange={(e) => setData('instagram_url', e.target.value)}
@@ -133,7 +133,7 @@ export default function Create({ auth }: PageProps) {
                                     {errors.instagram_url && <div className="text-sm text-rose-400 font-medium">{errors.instagram_url}</div>}
                                 </div>
                                 <div className="space-y-2">
-                                    <label className={labelClasses}>TikTok URL</label>
+                                    <label className={labelClasses}>TikTok URL (Optional)</label>
                                     <input
                                         value={data.tiktok_url}
                                         onChange={(e) => setData('tiktok_url', e.target.value)}
@@ -143,7 +143,7 @@ export default function Create({ auth }: PageProps) {
                                     {errors.tiktok_url && <div className="text-sm text-rose-400 font-medium">{errors.tiktok_url}</div>}
                                 </div>
                                 <div className="space-y-2">
-                                    <label className={labelClasses}>YouTube URL</label>
+                                    <label className={labelClasses}>YouTube URL (Optional)</label>
                                     <input
                                         value={data.youtube_url}
                                         onChange={(e) => setData('youtube_url', e.target.value)}
@@ -166,7 +166,7 @@ export default function Create({ auth }: PageProps) {
 
                             <div className="space-y-6">
                                 <div>
-                                    <label className={labelClasses}>Profile Image</label>
+                                    <label className={labelClasses}>Profile Image (Optional)</label>
                                     <div className="relative group overflow-hidden rounded-2xl border border-white/10 bg-white/5 aspect-square flex items-center justify-center">
                                         {profilePreview ? (
                                             <img src={profilePreview} className="absolute inset-0 w-full h-full object-cover" />
@@ -186,7 +186,7 @@ export default function Create({ auth }: PageProps) {
                                 </div>
 
                                 <div>
-                                    <label className={labelClasses}>Cover Image</label>
+                                    <label className={labelClasses}>Cover Image (Optional)</label>
                                     <div className="relative group overflow-hidden rounded-2xl border border-white/10 bg-white/5 aspect-[21/9] flex items-center justify-center">
                                         {coverPreview ? (
                                             <img src={coverPreview} className="absolute inset-0 w-full h-full object-cover" />
