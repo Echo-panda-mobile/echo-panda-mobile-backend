@@ -9,6 +9,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Filesystem\FilesystemAdapter;
+use Illuminate\Support\Facades\Storage;
 
 class Song extends Model
 {
@@ -85,14 +87,20 @@ class Song extends Model
             return $path;
         }
 
-        if (\Illuminate\Support\Facades\Storage::disk('public')->exists($path)) {
-            return \Illuminate\Support\Facades\Storage::disk('public')->url($path);
+        /** @var FilesystemAdapter $publicDisk */
+        $publicDisk = Storage::disk('public');
+        if ($publicDisk->exists($path)) {
+            return $publicDisk->url($path);
         }
 
         try {
-            return \Illuminate\Support\Facades\Storage::disk('s3')->temporaryUrl($path, now()->addMinutes(60));
+            /** @var FilesystemAdapter $s3Disk */
+            $s3Disk = Storage::disk('s3');
+            return $s3Disk->temporaryUrl($path, now()->addMinutes(60));
         } catch (\Exception $e) {
-            return \Illuminate\Support\Facades\Storage::disk('s3')->url($path);
+            /** @var FilesystemAdapter $s3Disk */
+            $s3Disk = Storage::disk('s3');
+            return $s3Disk->url($path);
         }
     }
 
