@@ -4,12 +4,12 @@ import { PageProps } from '@/types';
 import { ReactNode } from 'react';
 import {
     FaUsers,
-    FaMusic,
-    FaLayerGroup,
-    FaShieldHalved,
     FaStar,
-    FaCompactDisc
-} from "react-icons/fa6";
+    FaMusic,
+    FaCompactDisc,
+    FaLayerGroup,
+    FaShieldAlt
+} from "react-icons/fa";
 
 type DashboardMetrics = {
     totals: {
@@ -57,7 +57,7 @@ export default function Dashboard() {
         { label: 'Songs Uploaded', value: metrics.totals.total_songs.toLocaleString(), tone: 'from-amber-500/20 to-amber-500/5 text-amber-400 border-amber-500/30', note: `${metrics.totals.active_songs.toLocaleString()} active`, icon: <FaMusic size={16} />, colorRail: 'bg-amber-500' },
         { label: 'Albums Published', value: metrics.totals.total_albums.toLocaleString(), tone: 'from-emerald-500/20 to-emerald-500/5 text-emerald-400 border-emerald-500/30', note: `${metrics.totals.published_albums.toLocaleString()} published`, icon: <FaCompactDisc size={16} />, colorRail: 'bg-emerald-500' },
         { label: 'Categories', value: metrics.totals.total_categories.toLocaleString(), tone: 'from-indigo-500/20 to-indigo-500/5 text-indigo-400 border-indigo-500/30', note: 'Genre taxonomy', icon: <FaLayerGroup size={16} />, colorRail: 'bg-indigo-500' },
-        { label: 'Open Reports', value: metrics.moderation.reports_open.toLocaleString(), tone: 'from-rose-500/20 to-rose-500/5 text-rose-400 border-rose-500/30', note: 'Needs moderation', icon: <FaShieldHalved size={16} />, colorRail: 'bg-rose-500' },
+        { label: 'Open Reports', value: metrics.moderation.reports_open.toLocaleString(), tone: 'from-rose-500/20 to-rose-500/5 text-rose-400 border-rose-500/30', note: 'Needs moderation', icon: <FaShieldAlt size={16} />, colorRail: 'bg-rose-500' },
     ];
 
     return (

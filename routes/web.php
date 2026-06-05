@@ -215,6 +215,8 @@ Route::middleware('auth')->group(function () {
 
     // Admin Routes
     Route::prefix('admin')->name('admin.')->middleware('role:admin')->group(function () {
+        // Legacy alias kept for older frontend bundles that still call route('admin.featured.index').
+        Route::get('featured', [AdminReportController::class, 'index'])->name('featured.index');
         Route::resource('artists', AdminArtistController::class);
         Route::resource('users', AdminUserController::class)->only(['index', 'show', 'create', 'update', 'destroy']);
         Route::post('users/{user}/ban', [AdminUserController::class, 'ban'])->name('users.ban');
