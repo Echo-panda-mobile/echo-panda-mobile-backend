@@ -77,11 +77,11 @@ export default function Dashboard() {
                                 Echo Panda Control Deck
                             </div>
                             <h2 className="text-3xl font-black tracking-tight text-white lg:text-5xl leading-tight">
-                                Moderate, feature, and grow the<br />
+                                Moderate and grow the<br/>
                                 <span className="bg-gradient-to-r from-cyan-400 to-indigo-400 bg-clip-text text-transparent">platform from one dashboard.</span>
                             </h2>
                             <p className="text-sm leading-relaxed text-slate-400">
-                                This admin surface is built around the Echo Panda theme: deep night tones, neon accent rails, and clear command cards for artist operations, moderation, promotion, and analytics.
+                                This admin surface is built around the Echo Panda theme: deep night tones, neon accent rails, and clear command cards for artist operations, moderation, and catalog control.
                             </p>
                             <div className="flex flex-wrap gap-3 pt-2">
                                 <Link href={route('admin.artists.index')} className="rounded-xl bg-white text-slate-950 font-bold px-5 py-3 text-xs uppercase tracking-wider transition hover:bg-cyan-400 active:scale-98">
