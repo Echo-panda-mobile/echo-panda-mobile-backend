@@ -31,11 +31,25 @@ class ArtistController extends Controller
     /**
      * Get all artists (public endpoint).
      */
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        $artists = Artist::query()
-            ->where('is_active', '=', 1)
+        $limit = min(max((int) $request->get('limit', 50), 1), 200);
+        $search = trim((string) $request->get('search', ''));
+
+        $query = Artist::query()
+            ->where('is_active', '=', 1);
+
+        if ($search !== '') {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                    ->orWhere('slug', 'like', "%{$search}%")
+                    ->orWhere('bio', 'like', "%{$search}%");
+            });
+        }
+
+        $artists = $query
             ->orderBy('id', 'desc')
+            ->limit($limit)
             ->get();
 
         return response()->json([

@@ -8,6 +8,7 @@ use App\Models\Song;
 use App\Services\UserPreferenceService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Support\Facades\Storage;
 
 class PlaylistController extends Controller
@@ -29,6 +30,7 @@ class PlaylistController extends Controller
             }
         }
 
+        /** @var FilesystemAdapter $disk */
         $disk = Storage::disk('s3');
 
         try {
