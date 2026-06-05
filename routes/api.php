@@ -28,6 +28,8 @@ use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\UserUploadController;
 use Illuminate\Support\Facades\Route;
 
+use App\Http\Controllers\Api\ShareController;
+
 // Public Authentication Routes
 Route::post('/register', [AuthController::class, 'register'])->name('api.register');
 Route::post('/login', [AuthController::class, 'login'])->name('api.login');
@@ -96,17 +98,18 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/recommendations', [RecommendationController::class, 'index'])->name('api.recommendations.index');
     Route::post('/recommendations/events', [RecommendationController::class, 'trackEvent'])->name('api.recommendations.events.track');
 
+    // General Media Upload Routes (Internal logic handles specific role permissions)
+    Route::post('/upload/media/presign', [UploadController::class, 'presignMedia'])
+        ->name('api.upload.media.presign');
+
+    Route::post('/upload/media', [UploadController::class, 'media'])
+        ->name('api.upload.media.store');
+
+    Route::delete('/upload/media', [UploadController::class, 'deleteMedia'])
+        ->name('api.upload.media.delete');
+
     // Artist/Publisher Routes
     Route::middleware('role:artist,publicer,admin')->group(function () {
-        Route::post('/upload/media/presign', [UploadController::class, 'presignMedia'])
-            ->name('api.upload.media.presign');
-
-        Route::post('/upload/media', [UploadController::class, 'media'])
-            ->name('api.upload.media.store');
-
-        Route::delete('/upload/media', [UploadController::class, 'deleteMedia'])
-            ->name('api.upload.media.delete');
-
         // Album Routes (create/update/delete protected)
         Route::post('/albums', [AlbumController::class, 'store'])
             ->name('api.albums.store');
@@ -176,13 +179,15 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/playlists/{playlist}/songs/{song}', [PlaylistController::class, 'removeSong'])->name('api.playlists.remove-song');
     Route::get('/playlists/{playlist}/songs/{song}/exists', [PlaylistController::class, 'hasSong'])->name('api.playlists.has-song');
 
-    // AI Prompted Playlists
-    Route::prefix('ai-playlists')->group(function () {
-        Route::get('/', [\App\Http\Controllers\Api\AiPlaylistController::class, 'index']);
-        Route::post('/generate', [\App\Http\Controllers\Api\AiPlaylistController::class, 'generate']);
-        Route::get('/{playlist}', [\App\Http\Controllers\Api\AiPlaylistController::class, 'show']);
-        Route::delete('/{playlist}', [\App\Http\Controllers\Api\AiPlaylistController::class, 'destroy']);
-    });
+    // Dynamic Recommendations & Interactions
+    Route::get('/recommendations/home', [\App\Http\Controllers\Api\RecommendationController::class, 'home']);
+    Route::post('/interactions/track', [\App\Http\Controllers\Api\InteractionController::class, 'track']);
+
+    // Share Routes
+    Route::post('/shares', [ShareController::class, 'store'])->name('api.shares.store');
+    Route::get('/admin/shares/analytics', [ShareController::class, 'analytics'])
+        ->middleware('role:admin')
+        ->name('api.shares.analytics');
 });
 
 require __DIR__.'/api/mobile-admin.php';
