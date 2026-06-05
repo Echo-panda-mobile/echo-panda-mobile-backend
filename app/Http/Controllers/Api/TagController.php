@@ -36,11 +36,15 @@ class TagController extends Controller
 
     public function index(): JsonResponse
     {
-        $tags = Tag::orderBy('name')
+        $tags = Tag::query()
+            ->where('is_active', true)
+            ->orderBy('name')
             ->get()
             ->map(fn (Tag $tag) => $this->serializeTag($tag));
 
-        return response()->json($tags);
+        return response()->json([
+            'data' => $tags,
+        ]);
     }
 
     /**
