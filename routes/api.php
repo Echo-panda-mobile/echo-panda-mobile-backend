@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\Streaming\PlaybackController;
 use App\Http\Controllers\Api\Streaming\StreamTicketController;
 use App\Http\Controllers\Api\ListenHistoryController;
 use App\Http\Controllers\Api\Mobile\MbArtistController;
+use App\Http\Controllers\Api\Mobile\MbArtistDashboardController;
 use App\Http\Controllers\Api\Mobile\MbFavoriteController;
 use App\Http\Controllers\Api\Mobile\MbGenreController;
 use App\Http\Controllers\Api\Mobile\MbPlaybackController;
@@ -154,6 +155,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/playback/recent', [MbPlaybackController::class, 'recent'])->name('playback.recent');
         Route::get('/artists/popular', [MbArtistController::class, 'popular'])->name('artists.popular');
         Route::get('/artists/random', [MbArtistController::class, 'random'])->name('artists.random');
+
+        Route::middleware('role:artist,publicer,admin')->group(function () {
+            Route::get('/artist/top-listened-songs', [MbArtistDashboardController::class, 'topListenedSongs'])
+                ->name('artist.top-listened-songs');
+        });
     });
 
     // Listen History Routes

@@ -35,9 +35,7 @@ WORKDIR /var/www/html
 COPY composer.json composer.lock ./
 RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist
 
-# Copy package files first for layer caching
-COPY package.json package-lock.json ./
-RUN npm ci
+
 
 # Copy full app
 COPY . .

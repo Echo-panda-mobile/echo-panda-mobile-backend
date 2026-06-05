@@ -64,4 +64,56 @@ class SongWebUpdateTest extends TestCase
         $this->assertSame($artist->id, $fresh->artist_id);
         $this->assertSame($tag->id, $fresh->tag_id);
     }
+
+    public function test_artist_can_update_song_when_album_belongs_to_them_but_song_artist_id_is_catalog(): void
+    {
+        $user = User::factory()->create(['role' => User::ROLE_ARTIST]);
+        $artist = Artist::create([
+            'user_id' => $user->id,
+            'name' => 'My Stage Name',
+            'slug' => 'my-stage-name',
+            'is_active' => true,
+            'verification_status' => 'pending',
+        ]);
+        $catalogArtist = Artist::create([
+            'user_id' => User::factory()->create()->id,
+            'name' => 'Billie Eilish',
+            'slug' => 'billie-eilish',
+            'is_active' => true,
+            'verification_status' => 'verified',
+        ]);
+        $album = Album::create([
+            'artist_id' => $artist->id,
+            'title' => 'My Album',
+            'artist' => $artist->name,
+            'release_status' => 'published',
+        ]);
+        $genre = Genre::create(['name' => 'Pop', 'slug' => 'pop', 'is_active' => true]);
+        $song = Song::create([
+            'album_id' => $album->id,
+            'artist_id' => $catalogArtist->id,
+            'title' => 'WILDFLOWER',
+            'artist' => 'Billie Eilish',
+            'duration' => 180,
+            'track_number' => 1,
+            'is_active' => true,
+        ]);
+
+        Sanctum::actingAs($user, ['*']);
+
+        $this->putJson("/api/songs/{$song->id}", [
+            'album_id' => $album->id,
+            'title' => 'WILDFLOWER',
+            'duration' => 180,
+            'track_number' => 1,
+            'category_id' => $genre->id,
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.title', 'WILDFLOWER')
+            ->assertJsonPath('data.category_id', $genre->id);
+
+        $fresh = $song->fresh();
+        $this->assertSame($artist->id, $fresh->artist_id);
+        $this->assertSame('My Stage Name', $fresh->artist);
+    }
 }

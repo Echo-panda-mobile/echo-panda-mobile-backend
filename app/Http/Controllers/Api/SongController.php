@@ -295,6 +295,7 @@ class SongController extends Controller
     public function update(UpdateSongRequest $request, Song $song): JsonResponse
     {
         $this->repairSongArtistLink($request->user(), $song);
+        $song->refresh();
         $this->authorize('update', $song);
 
         $validated = $request->validated();
@@ -328,6 +329,7 @@ class SongController extends Controller
     public function destroy(Song $song): JsonResponse
     {
         $this->repairSongArtistLink(request()->user(), $song);
+        $song->refresh();
         $this->authorize('delete', $song);
 
         $song->delete();
