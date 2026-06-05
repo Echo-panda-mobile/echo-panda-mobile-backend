@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreSongRequest;
 use App\Http\Requests\UpdateSongRequest;
 use App\Jobs\ProcessUploadedSong;
+use App\Models\Lyric;
 use App\Models\Song;
 use App\Models\Genre;
 use App\Models\User;
@@ -36,6 +37,7 @@ class SongController extends Controller
             'duration' => $song->duration,
             'track_number' => $song->track_number,
             'lyrics' => $song->lyrics,
+            'lyrics_url' => $song->lyrics_url,
             'category_id' => $song->category_id,
             'tag_id' => $song->tag_id,
             'genre' => $song->category_id ? Genre::find($song->category_id) : null,
@@ -124,6 +126,71 @@ class SongController extends Controller
         return null;
     }
 
+    protected function parseLyricsLines(string $lyrics): array
+    {
+        $lyrics = trim($lyrics);
+
+        if ($lyrics === '') {
+            return [];
+        }
+
+        $hasTimestamps = (bool) preg_match('/^\[\d{2}:\d{2}(?:\.\d{1,3})?\]/m', $lyrics);
+        if ($hasTimestamps) {
+            $lines = preg_split('/\r\n|\r|\n/', $lyrics) ?: [];
+            $parsed = [];
+
+            foreach ($lines as $line) {
+                if (! preg_match('/^\[(\d{2}):(\d{2})(?:\.(\d{1,3}))?\](.*)$/', trim($line), $matches)) {
+                    continue;
+                }
+
+                $minutes = (int) $matches[1];
+                $seconds = (int) $matches[2];
+                $fraction = isset($matches[3]) ? (int) str_pad($matches[3], 3, '0') : 0;
+
+                $parsed[] = [
+                    'time_ms' => ($minutes * 60 * 1000) + ($seconds * 1000) + $fraction,
+                    'text' => trim($matches[4]),
+                ];
+            }
+
+            usort($parsed, fn (array $a, array $b) => $a['time_ms'] <=> $b['time_ms']);
+
+            return $parsed;
+        }
+
+        return array_values(array_filter(array_map(
+            fn (string $line): array => [
+                'time_ms' => 0,
+                'text' => trim($line),
+            ],
+            preg_split('/\r\n|\r|\n/', $lyrics) ?: []
+        ), fn (array $line): bool => $line['text'] !== ''));
+    }
+
+    protected function syncLyricRecord(Song $song, array $payload): void
+    {
+        $lyrics = trim((string) ($payload['lyrics'] ?? ''));
+
+        if ($lyrics === '') {
+            if ($song->lyric) {
+                $song->lyric()->delete();
+            }
+
+            return;
+        }
+
+        $song->lyric()->updateOrCreate(
+            ['song_id' => $song->id],
+            [
+                'format' => preg_match('/^\[\d{2}:\d{2}(?:\.\d{1,3})?\]/m', $lyrics) ? 'lrc' : 'plain',
+                'lrc_content' => $lyrics,
+                'parsed_json' => $this->parseLyricsLines($lyrics),
+                'language' => $payload['language'] ?? null,
+            ]
+        );
+    }
+
     /**
      * Display a listing of songs.
      */
@@ -199,6 +266,9 @@ class SongController extends Controller
         $song = Song::create($payload);
         $song->load(['album', 'artistModel']);
 
+        $this->syncLyricRecord($song, $payload);
+        $song->refresh()->load(['album', 'artistModel', 'lyric']);
+
         if (! empty($song->original_key)) {
             ProcessUploadedSong::dispatch($song->id)->afterCommit();
         }
@@ -235,6 +305,9 @@ class SongController extends Controller
 
         $song->update($validated);
         $song->load(['album', 'artistModel']);
+
+        $this->syncLyricRecord($song, $validated);
+        $song->refresh()->load(['album', 'artistModel', 'lyric']);
 
         if (! empty($validated['original_key'] ?? null)) {
             $song->processing_status = 'uploaded';

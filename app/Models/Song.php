@@ -53,6 +53,7 @@ class Song extends Model
         'play_count',
         'published_at',
         'original_key',
+        'lyrics_url',
         'variant_key_128',
         'variant_key_320',
         'cover_key',
