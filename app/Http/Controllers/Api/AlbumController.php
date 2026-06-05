@@ -113,6 +113,44 @@ class AlbumController extends Controller
     }
 
     /**
+     * Return albums released today (real-time new releases).
+     */
+    public function newReleasesToday(Request $request): JsonResponse
+    {
+        $limit = min(max((int) $request->get('limit', 10), 1), 50);
+
+        $todayAlbums = Album::query()
+            ->with(['artistModel', 'songs'])
+            ->where('is_active', true)
+            ->where('release_status', 'published')
+            ->whereDate('release_date', today())
+            ->orderByDesc('release_date')
+            ->orderByDesc('created_at')
+            ->limit($limit)
+            ->get();
+
+        if ($todayAlbums->isEmpty()) {
+            $todayAlbums = Album::query()
+                ->with(['artistModel', 'songs'])
+                ->where('is_active', true)
+                ->where('release_status', 'published')
+                ->orderByDesc('release_date')
+                ->orderByDesc('created_at')
+                ->limit($limit)
+                ->get();
+        }
+
+        return response()->json([
+            'data' => $todayAlbums->map(fn (Album $album) => $this->transformAlbum($album))->values(),
+            'meta' => [
+                'mode' => 'today',
+                'count' => $todayAlbums->count(),
+                'date' => today()->toDateString(),
+            ],
+        ]);
+    }
+
+    /**
      * Store a newly created album.
      */
     public function store(StoreAlbumRequest $request): JsonResponse

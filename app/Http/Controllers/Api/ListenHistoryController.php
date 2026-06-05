@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\ListenHistory;
 use App\Models\Song;
+use App\Services\UserPreferenceService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -14,7 +15,7 @@ class ListenHistoryController extends Controller
     /**
      * Track a song play for the current user.
      */
-    public function track(Request $request): JsonResponse
+    public function track(Request $request, UserPreferenceService $preferenceService): JsonResponse
     {
         $validated = $request->validate([
             'song_id' => 'required|integer|exists:songs,id',
@@ -33,6 +34,16 @@ class ListenHistoryController extends Controller
         $listen->duration_listened = $validated['duration_listened'] ?? $listen->duration_listened ?? 0;
         $listen->completed = $validated['completed'] ?? $listen->completed ?? false;
         $listen->save();
+
+        $song = Song::query()->with(['genre', 'artistModel', 'tag'])->find($validated['song_id']);
+        if ($song) {
+            $preferenceService->applyListenActivity(
+                (int) $user->id,
+                $song,
+                (int) ($validated['duration_listened'] ?? 0),
+                (bool) ($validated['completed'] ?? false)
+            );
+        }
 
         return response()->json([
             'message' => 'Listen history tracked successfully',

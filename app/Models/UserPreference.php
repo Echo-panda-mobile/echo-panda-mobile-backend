@@ -13,6 +13,8 @@ class UserPreference extends Model
 
     protected $fillable = [
         'user_id',
+        'preference_type',
+        'preference_value',
         'genre',
         'preference_score',
     ];
@@ -25,5 +27,19 @@ class UserPreference extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function getResolvedTypeAttribute(): string
+    {
+        return $this->preference_type ?: 'genre';
+    }
+
+    public function getResolvedValueAttribute(): string
+    {
+        if (! empty($this->preference_value)) {
+            return (string) $this->preference_value;
+        }
+
+        return (string) ($this->genre ?? '');
     }
 }

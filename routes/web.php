@@ -16,6 +16,7 @@ use App\Http\Controllers\Admin\ReportController as AdminReportController;
 use App\Http\Controllers\Admin\AlbumController as AdminAlbumController;
 use App\Http\Controllers\Admin\SongController as AdminSongController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
+use App\Http\Controllers\Admin\RecommendationAnalyticsController as AdminRecommendationAnalyticsController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\DB;
@@ -228,6 +229,9 @@ Route::middleware('auth')->group(function () {
         Route::get('analytics', function () {
             return redirect()->route('dashboard');
         })->name('analytics.index');
+
+        Route::get('analytics/recommendations', [AdminRecommendationAnalyticsController::class, 'index'])
+            ->name('analytics.recommendations');
 
         // Legacy alias kept for older frontend bundles that still call route('admin.featured.index').
         Route::get('featured', [AdminReportController::class, 'index'])->name('featured.index');
