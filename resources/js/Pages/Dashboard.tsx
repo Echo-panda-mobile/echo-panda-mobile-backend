@@ -77,7 +77,7 @@ export default function Dashboard() {
                                 Echo Panda Control Deck
                             </div>
                             <h2 className="text-3xl font-black tracking-tight text-white lg:text-5xl leading-tight">
-                                Moderate, feature, and grow the<br/>
+                                Moderate, feature, and grow the<br />
                                 <span className="bg-gradient-to-r from-cyan-400 to-indigo-400 bg-clip-text text-transparent">platform from one dashboard.</span>
                             </h2>
                             <p className="text-sm leading-relaxed text-slate-400">
