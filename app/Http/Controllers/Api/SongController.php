@@ -8,6 +8,7 @@ use App\Http\Requests\UpdateSongRequest;
 use App\Jobs\ProcessUploadedSong;
 use App\Models\Song;
 use App\Models\Genre;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -36,6 +37,7 @@ class SongController extends Controller
             'track_number' => $song->track_number,
             'lyrics' => $song->lyrics,
             'category_id' => $song->category_id,
+            'tag_id' => $song->tag_id,
             'genre' => $song->category_id ? Genre::find($song->category_id) : null,
             'mood' => $song->mood,
             'song_type' => $song->song_type,
@@ -56,6 +58,45 @@ class SongController extends Controller
             'updated_at' => $song->updated_at,
             'album' => $song->album,
         ];
+    }
+
+    /**
+     * Backfill artist_id for legacy songs owned via album or display name.
+     */
+    protected function repairSongArtistLink(?User $user, Song $song): void
+    {
+        if (! $user || $user->isAdmin()) {
+            return;
+        }
+
+        $artist = $user->artist;
+        if (! $artist) {
+            return;
+        }
+
+        if ((int) $song->artist_id === (int) $artist->id) {
+            return;
+        }
+
+        $song->loadMissing(['album', 'artistModel']);
+
+        if ($song->album && (int) $song->album->artist_id === (int) $artist->id) {
+            $song->forceFill([
+                'artist_id' => $artist->id,
+                'artist' => $artist->name,
+            ])->save();
+
+            return;
+        }
+
+        $songName = trim((string) ($song->artist ?? $song->artistModel?->name ?? ''));
+        $artistName = trim((string) $artist->name);
+        if ($songName !== '' && $artistName !== '' && strcasecmp($songName, $artistName) === 0) {
+            $song->forceFill([
+                'artist_id' => $artist->id,
+                'artist' => $artist->name,
+            ])->save();
+        }
     }
 
     protected function resolveGenreId(mixed $value): ?int
@@ -183,6 +224,7 @@ class SongController extends Controller
      */
     public function update(UpdateSongRequest $request, Song $song): JsonResponse
     {
+        $this->repairSongArtistLink($request->user(), $song);
         $this->authorize('update', $song);
 
         $validated = $request->validated();
@@ -212,6 +254,7 @@ class SongController extends Controller
      */
     public function destroy(Song $song): JsonResponse
     {
+        $this->repairSongArtistLink(request()->user(), $song);
         $this->authorize('delete', $song);
 
         $song->delete();

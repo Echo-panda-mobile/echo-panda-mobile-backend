@@ -15,7 +15,6 @@ use App\Http\Controllers\Api\Streaming\PlaybackController;
 use App\Http\Controllers\Api\Streaming\StreamTicketController;
 use App\Http\Controllers\Api\ListenHistoryController;
 use App\Http\Controllers\Api\Mobile\MbArtistController;
-use App\Http\Controllers\Api\Mobile\MbArtistSongController;
 use App\Http\Controllers\Api\Mobile\MbFavoriteController;
 use App\Http\Controllers\Api\Mobile\MbGenreController;
 use App\Http\Controllers\Api\Mobile\MbPlaybackController;
@@ -132,16 +131,6 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::put('/artist/profile', [ApiArtistController::class, 'updateProfile'])
             ->name('api.artist.profile.update');
-
-        // Mobile-only artist song edit (does not change web PUT /songs/{song})
-        Route::prefix('mb/artist')->name('api.mb.artist.')->group(function () {
-            Route::get('/form-options', [MbArtistSongController::class, 'formOptions'])
-                ->name('form-options');
-            Route::get('/songs/{song}', [MbArtistSongController::class, 'show'])
-                ->name('songs.show');
-            Route::put('/songs/{song}', [MbArtistSongController::class, 'update'])
-                ->name('songs.update');
-        });
     });
 
     // Allow creating an artist profile for authenticated users who are not artists yet

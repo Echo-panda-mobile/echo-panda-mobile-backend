@@ -29,6 +29,7 @@ class UpdateSongRequest extends FormRequest
             'track_number' => ['required', 'integer', 'min:1'],
             'lyrics' => ['nullable', 'string'],
             'category_id' => ['nullable', 'string', 'max:255'],
+            'tag_id' => ['nullable', 'integer', 'exists:tags,id'],
             'mood' => ['nullable', 'string', 'max:100'],
             'song_type' => ['nullable', 'string', 'max:100'],
             'bpm' => ['nullable', 'integer', 'min:0'],
