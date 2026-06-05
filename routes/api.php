@@ -19,6 +19,8 @@ use App\Http\Controllers\Api\Mobile\MbPlaybackController;
 use App\Http\Controllers\Api\PlaylistController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\SongController;
+use App\Http\Controllers\Api\UserController;
+use App\Http\Controllers\Api\UserUploadController;
 use Illuminate\Support\Facades\Route;
 
 // Public Authentication Routes
@@ -45,6 +47,7 @@ Route::get('/genres', [\App\Http\Controllers\Api\GenreController::class, 'index'
 Route::get('/artists', [\App\Http\Controllers\Api\Artist\ArtistController::class, 'index'])->name('api.artists.index');
 Route::get('/artists/popular', [MbArtistController::class, 'popular'])->name('api.artists.popular');
 Route::get('/artists/{artist}/image-url', [\App\Http\Controllers\Api\Artist\ArtistController::class, 'imageUrl'])->name('api.artists.image-url');
+Route::get('/users/{user}/image-url', [UserController::class, 'imageUrl'])->name('api.users.image-url');
 
 // Protected Routes (require authentication)
 Route::middleware('auth:sanctum')->group(function () {
@@ -63,6 +66,10 @@ Route::middleware('auth:sanctum')->group(function () {
     // Profile Routes
     Route::get('/profile', [ProfileController::class, 'show'])->name('api.profile.show');
     Route::put('/profile', [ProfileController::class, 'update'])->name('api.profile.update');
+    Route::post('/upload/user-image/presign', [UserUploadController::class, 'presign'])
+        ->name('api.upload.user-image.presign');
+    Route::post('/upload/user-image', [UserUploadController::class, 'media'])
+        ->name('api.upload.user-image.store');
     Route::get('/profile/favorite-songs', [ProfileController::class, 'getFavoriteSongs'])->name('api.profile.favorite-songs');
     Route::get('/profile/favorite-albums', [ProfileController::class, 'getFavoriteAlbums'])->name('api.profile.favorite-albums');
 
