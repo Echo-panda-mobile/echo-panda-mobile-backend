@@ -35,7 +35,11 @@ WORKDIR /var/www/html
 COPY composer.json composer.lock ./
 RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist
 
-# Copy full app (your .dockerignore keeps node_modules, .env, .git out)
+# Copy package files first for layer caching
+COPY package.json package-lock.json ./
+RUN npm ci
+
+# Copy full app
 COPY . .
 
 # Finish composer with full app present (runs post-install scripts)
