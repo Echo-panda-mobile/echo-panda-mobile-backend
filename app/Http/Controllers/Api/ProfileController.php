@@ -69,7 +69,7 @@ class ProfileController extends Controller
             return;
         }
 
-        $userSlug = \Illuminate\Support\Str::slug($user->name ?: 'user-'.$user->id);
+        $userSlug = \Illuminate\Support\Str::slug($user->name ?: 'user-' . $user->id);
         $expectedPrefix = "images/user-images/{$userSlug}/";
 
         if (! str_starts_with($imageKey, $expectedPrefix)) {

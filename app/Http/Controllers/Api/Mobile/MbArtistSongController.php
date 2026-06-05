@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Genre;
 use App\Models\Song;
 use App\Models\Tag;
+use App\Models\User;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -53,7 +54,7 @@ class MbArtistSongController extends Controller
 
     public function show(Song $song): JsonResponse
     {
-        $this->authorize('update', $song);
+        $this->ensureArtistOwnsSong($song);
 
         $song->load(['album', 'artistModel']);
 
@@ -64,7 +65,7 @@ class MbArtistSongController extends Controller
 
     public function update(Request $request, Song $song): JsonResponse
     {
-        $this->authorize('update', $song);
+        $this->ensureArtistOwnsSong($song);
 
         $validated = $request->validate([
             'album_id' => ['required', 'exists:albums,id'],
@@ -90,6 +91,56 @@ class MbArtistSongController extends Controller
             'message' => 'Song updated successfully',
             'data' => $this->transformSong($song),
         ]);
+    }
+
+    /**
+     * Mobile catalog may include legacy songs where artist_id was not set consistently.
+     * Resolve ownership via artist_id, album.artist_id, or artist display name, then repair links.
+     */
+    protected function ensureArtistOwnsSong(Song $song): void
+    {
+        /** @var User|null $user */
+        $user = request()->user();
+        if (! $user) {
+            abort(401, 'Unauthenticated');
+        }
+
+        if ($user->isAdmin()) {
+            return;
+        }
+
+        $artist = $user->artist;
+        if (! $artist) {
+            abort(403, 'Artist profile not found for this account.');
+        }
+
+        if ((int) $song->artist_id === (int) $artist->id) {
+            return;
+        }
+
+        $song->loadMissing(['album', 'artistModel']);
+
+        if ($song->album && (int) $song->album->artist_id === (int) $artist->id) {
+            $song->forceFill([
+                'artist_id' => $artist->id,
+                'artist' => $artist->name,
+            ])->save();
+
+            return;
+        }
+
+        $songName = trim((string) ($song->artist ?? $song->artistModel?->name ?? ''));
+        $artistName = trim((string) $artist->name);
+        if ($songName !== '' && $artistName !== '' && strcasecmp($songName, $artistName) === 0) {
+            $song->forceFill([
+                'artist_id' => $artist->id,
+                'artist' => $artist->name,
+            ])->save();
+
+            return;
+        }
+
+        abort(403, 'This action is unauthorized.');
     }
 
     protected function transformSong(Song $song): array

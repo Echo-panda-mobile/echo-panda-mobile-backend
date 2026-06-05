@@ -63,4 +63,41 @@ class MbArtistSongUpdateTest extends TestCase
 
         $this->assertSame('Updated Title', $song->fresh()->title);
     }
+
+    public function test_artist_can_edit_song_linked_via_album_when_song_artist_id_is_missing(): void
+    {
+        $user = User::factory()->create(['role' => User::ROLE_ARTIST]);
+        $artist = Artist::create([
+            'user_id' => $user->id,
+            'name' => 'Echo Panda',
+            'slug' => 'echo-panda',
+            'is_active' => true,
+            'verification_status' => 'pending',
+        ]);
+        $album = Album::create([
+            'artist_id' => $artist->id,
+            'title' => 'Test Album',
+            'artist' => $artist->name,
+            'release_status' => 'draft',
+        ]);
+        $genre = Genre::create(['name' => 'Pop', 'slug' => 'pop', 'is_active' => true]);
+        $song = Song::create([
+            'album_id' => $album->id,
+            'artist_id' => null,
+            'title' => 'Legacy Song',
+            'artist' => $artist->name,
+            'duration' => 180,
+            'track_number' => 1,
+            'category_id' => $genre->id,
+            'is_active' => true,
+        ]);
+
+        Sanctum::actingAs($user, ['*']);
+
+        $this->getJson("/api/mb/artist/songs/{$song->id}")
+            ->assertOk()
+            ->assertJsonPath('data.title', 'Legacy Song');
+
+        $this->assertSame($artist->id, $song->fresh()->artist_id);
+    }
 }
