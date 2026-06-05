@@ -43,7 +43,25 @@ class SongPolicy
     protected function owns(User $user, Song $song): bool
     {
         $artist = $user->artist;
+        if ($artist === null) {
+            return false;
+        }
 
-        return $artist !== null && (int) $song->artist_id === (int) $artist->id;
+        if ((int) $song->artist_id === (int) $artist->id) {
+            return true;
+        }
+
+        $song->loadMissing(['album', 'artistModel']);
+
+        if ($song->album && (int) $song->album->artist_id === (int) $artist->id) {
+            return true;
+        }
+
+        $songName = trim((string) ($song->artist ?? $song->artistModel?->name ?? ''));
+        $artistName = trim((string) $artist->name);
+
+        return $songName !== ''
+            && $artistName !== ''
+            && strcasecmp($songName, $artistName) === 0;
     }
 }

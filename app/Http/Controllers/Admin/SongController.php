@@ -21,11 +21,26 @@ class SongController extends Controller
      */
     public function index(Request $request): Response
     {
-        $query = Song::query()->with('album');
+        $query = Song::query()->with(['album', 'artistModel']);
 
-        // Filter by album
-        if ($request->has('album_id')) {
-            $query->where('album_id', $request->get('album_id'));
+        // Stats calculation
+        $stats = [
+            'total' => Song::count(),
+            'active' => Song::where('is_active', true)->count(),
+            'reported' => Song::whereHas('reports', function($q) { $q->where('status', 'open'); })->count(),
+            'deleted' => Song::onlyTrashed()->count(),
+        ];
+
+        // Filter by Status
+        $status = $request->get('status');
+        if ($status === 'deleted') {
+            $query->onlyTrashed();
+        } elseif ($status === 'active') {
+            $query->where('is_active', true);
+        } elseif ($status === 'reported') {
+            $query->whereHas('reports', function($q) { $q->where('status', 'open'); });
+        } else {
+            $query->withTrashed();
         }
 
         // Search functionality
@@ -33,44 +48,48 @@ class SongController extends Controller
             $search = $request->get('search');
             $query->where(function ($q) use ($search) {
                 $q->where('title', 'like', "%{$search}%")
-                    ->orWhere('artist', 'like', "%{$search}%");
+                    ->orWhere('artist', 'like', "%{$search}%")
+                    ->orWhereHas('album', function($aq) use ($search) {
+                        $aq->where('title', 'like', "%{$search}%");
+                    })
+                    ->orWhereHas('artistModel', function($arq) use ($search) {
+                        $arq->where('name', 'like', "%{$search}%");
+                    });
             });
         }
 
-        $songs = $query->orderBy('track_number')->paginate(15)->withQueryString();
+        if ($request->has('album_id') && $request->get('album_id')) {
+            $query->where('album_id', $request->get('album_id'));
+        }
+
+        $songs = $query->orderByDesc('created_at')->paginate(20)->withQueryString();
         $this->attachModerationReportData($songs->getCollection());
-        $albums = Album::all();
+        $albums = Album::select('id', 'title')->get();
 
         return Inertia::render('Admin/Songs/Index', [
             'songs' => $songs,
             'albums' => $albums,
-            'filters' => $request->only(['search', 'album_id']),
+            'stats' => $stats,
+            'filters' => $request->only(['search', 'album_id', 'status']),
         ]);
     }
 
     /**
      * Show the form for creating a new resource.
+     * DISABLED: Admin cannot create songs directly.
      */
     public function create(Request $request): Response
     {
-        $albums = Album::all();
-        $albumId = $request->get('album_id');
-
-        return Inertia::render('Admin/Songs/Create', [
-            'albums' => $albums,
-            'defaultAlbumId' => $albumId,
-        ]);
+        abort(403, 'Administrators cannot create songs directly. Songs must be uploaded by artists.');
     }
 
     /**
      * Store a newly created resource in storage.
+     * DISABLED: Admin cannot create songs directly.
      */
     public function store(StoreSongRequest $request): RedirectResponse
     {
-        Song::create($request->validated());
-
-        return redirect()->route('admin.songs.index')
-            ->with('success', 'Song created successfully.');
+        abort(403, 'Administrators cannot create songs directly. Songs must be uploaded by artists.');
     }
 
     /**
@@ -78,7 +97,7 @@ class SongController extends Controller
      */
     public function show(Song $song): Response
     {
-        $song->load('album');
+        $song->load(['album', 'artistModel', 'reports.user']);
 
         return Inertia::render('Admin/Songs/Show', [
             'song' => $song,
@@ -120,55 +139,27 @@ class SongController extends Controller
             ->with('success', 'Song deleted successfully.');
     }
 
-    public function approve(Song $song): RedirectResponse
+    /**
+     * Permanent delete for moderation.
+     */
+    public function forceDelete($id): RedirectResponse
     {
-        $song->update(['is_active' => true]);
+        $song = Song::withTrashed()->findOrFail($id);
+        $song->forceDelete();
 
-        return back()->with('success', 'Song approved and made visible.');
+        return redirect()->route('admin.songs.index')
+            ->with('success', 'Song permanently removed from catalog.');
     }
 
-    public function hide(Song $song): RedirectResponse
+    /**
+     * Restore a deleted song.
+     */
+    public function restore($id): RedirectResponse
     {
-        $song->update(['is_active' => false]);
+        $song = Song::withTrashed()->findOrFail($id);
+        $song->restore();
 
-        return back()->with('success', 'Song hidden from the platform.');
-    }
-
-    public function report(Request $request, Song $song): RedirectResponse
-    {
-        $validated = $request->validate([
-            'reason' => ['required', 'string', 'max:255'],
-            'details' => ['nullable', 'string', 'max:5000'],
-        ]);
-
-        Report::create([
-            'reportable_type' => Song::class,
-            'reportable_id' => $song->id,
-            'user_id' => $request->user()?->id,
-            'reason' => $validated['reason'],
-            'details' => $validated['details'] ?? null,
-            'status' => 'open',
-        ]);
-
-        return back()->with('success', 'Song reported for moderation review.');
-    }
-
-    public function bulkModerate(Request $request): RedirectResponse
-    {
-        $validated = $request->validate([
-            'action' => ['required', 'in:approve,hide'],
-            'ids' => ['required', 'array', 'min:1'],
-            'ids.*' => ['integer', 'exists:songs,id'],
-        ]);
-
-        $updates = [
-            'approve' => ['is_active' => true],
-            'hide' => ['is_active' => false],
-        ];
-
-        Song::whereIn('id', $validated['ids'])->update($updates[$validated['action']]);
-
-        return back()->with('success', ucfirst($validated['action']).'d selected songs.');
+        return back()->with('success', 'Song restored successfully.');
     }
 
     protected function attachModerationReportData(SupportCollection $songs): void
@@ -190,7 +181,7 @@ class SongController extends Controller
 
             $song->setAttribute('report_count', $reports->count());
             $song->setAttribute('open_report_count', $reports->where('status', 'open')->count());
-            $song->setAttribute('recent_reports', $reports->take(5)->map(fn (Report $report) => [
+            $song->setAttribute('recent_reports', $reports->take(10)->map(fn (Report $report) => [
                 'id' => $report->id,
                 'reason' => $report->reason,
                 'details' => $report->details,

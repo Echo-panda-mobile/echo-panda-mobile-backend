@@ -95,9 +95,8 @@ export default function Create(_: PageProps) {
                         </div>
 
                         <div className="mt-6 flex flex-wrap gap-3">
-                            <PrimaryButton disabled={processing}>Create User</PrimaryButton>
                             <Link href={route('admin.users.index')} className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-slate-200 hover:bg-white/10">
-                                Cancel
+                                Back to User List
                             </Link>
                         </div>
                     </form>

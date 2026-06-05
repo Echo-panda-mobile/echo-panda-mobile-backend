@@ -6,6 +6,7 @@ export interface Album {
     release_date: string | null;
     description: string | null;
     cover_image: string | null;
+    cover_url?: string;
     release_status?: string;
     report_count?: number;
     open_report_count?: number;

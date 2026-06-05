@@ -24,6 +24,22 @@ class MbAdminSongController extends Controller
         return response()->json(['message' => 'Song hidden from the platform.']);
     }
 
+    public function updateStatus(Request $request, Song $song): JsonResponse
+    {
+        $validated = $request->validate([
+            'is_active' => ['required', 'boolean'],
+        ]);
+
+        $song->update(['is_active' => $validated['is_active']]);
+
+        return response()->json([
+            'message' => $validated['is_active']
+                ? 'Song approved and made visible.'
+                : 'Song hidden from the platform.',
+            'is_active' => (bool) $song->is_active,
+        ]);
+    }
+
     public function report(Request $request, Song $song): JsonResponse
     {
         $validated = $request->validate([

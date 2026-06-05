@@ -1,4 +1,3 @@
-# Use official PHP image with necessary extensions
 FROM php:8.3-fpm
 
 RUN apt-get update && apt-get install -y \
@@ -31,13 +30,29 @@ RUN printf '%s\n' \
 
 WORKDIR /var/www/html
 
-COPY . /var/www/html
+# Copy composer files first so Docker caches this layer
+# and only re-runs composer install when composer.json/lock changes
+COPY composer.json composer.lock ./
+RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist
+
+
+
+# Copy full app
+COPY . .
+
+# Finish composer with full app present (runs post-install scripts)
+RUN composer dump-autoload --optimize --no-dev
+
+# Build frontend assets inside the image
+RUN npm ci && npm run build && rm -rf node_modules
+
+# Fix permissions — only on specific dirs, not entire /var/www/html
+RUN chown -R www-data:www-data storage bootstrap/cache \
+    && chmod -R 775 storage bootstrap/cache
 
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
 ENTRYPOINT ["entrypoint.sh"]
-
 EXPOSE 9000
-
 CMD ["php-fpm"]

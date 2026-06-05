@@ -21,7 +21,24 @@ class AlbumController extends Controller
      */
     public function index(Request $request): Response
     {
-        $query = Album::query()->withCount('songs');
+        $query = Album::query()->with(['artistModel'])->withCount('songs');
+
+        // Stats calculation
+        $stats = [
+            'total' => Album::count(),
+            'active' => Album::where('release_status', 'published')->count(),
+            'deleted' => Album::onlyTrashed()->count(),
+        ];
+
+        // Filter by Status
+        $status = $request->get('status');
+        if ($status === 'deleted') {
+            $query->onlyTrashed();
+        } elseif ($status === 'active') {
+            $query->where('release_status', 'published');
+        } else {
+            $query->withTrashed();
+        }
 
         // Search functionality
         if ($request->has('search')) {
@@ -29,50 +46,37 @@ class AlbumController extends Controller
             $query->where(function ($q) use ($search) {
                 $q->where('title', 'like', "%{$search}%")
                     ->orWhere('artist', 'like', "%{$search}%")
-                    ->orWhere('description', 'like', "%{$search}%");
+                    ->orWhereHas('artistModel', function($aq) use ($search) {
+                        $aq->where('name', 'like', "%{$search}%");
+                    });
             });
         }
 
-        $albums = $query->latest()->paginate(15)->withQueryString();
-        $this->attachModerationReportData($albums->getCollection());
+        $albums = $query->latest()->paginate(20)->withQueryString();
 
         return Inertia::render('Admin/Albums/Index', [
             'albums' => $albums,
-            'filters' => $request->only(['search']),
+            'stats' => $stats,
+            'filters' => $request->only(['search', 'status']),
         ]);
     }
 
     /**
      * Show the form for creating a new resource.
+     * DISABLED: Admin cannot create albums directly.
      */
     public function create(): Response
     {
-        return Inertia::render('Admin/Albums/Create', [
-            'artists' => Artist::orderBy('name')->get(['id', 'name', 'slug']),
-        ]);
+        abort(403, 'Administrators cannot create albums directly. Albums must be created by artists.');
     }
 
     /**
      * Store a newly created resource in storage.
+     * DISABLED: Admin cannot create albums directly.
      */
     public function store(StoreAlbumRequest $request): RedirectResponse
     {
-        $validated = $request->validated();
-        $artist = Artist::findOrFail($validated['artist_id']);
-
-        Album::create([
-            'artist_id' => $artist->id,
-            'artist' => $artist->name,
-            'title' => $validated['title'],
-            'release_date' => $validated['release_date'] ?? null,
-            'description' => $validated['description'] ?? null,
-            'release_status' => $validated['release_status'] ?? 'draft',
-            'scheduled_at' => $validated['scheduled_at'] ?? null,
-            'cover_key' => $validated['cover_key'] ?? null,
-        ]);
-
-        return redirect()->route('admin.albums.index')
-            ->with('success', 'Album created successfully.');
+        abort(403, 'Administrators cannot create albums directly. Albums must be created by artists.');
     }
 
     /**
@@ -80,7 +84,7 @@ class AlbumController extends Controller
      */
     public function show(Album $album): Response
     {
-        $album->load('songs');
+        $album->load(['songs', 'artistModel']);
 
         return Inertia::render('Admin/Albums/Show', [
             'album' => $album,
@@ -104,18 +108,8 @@ class AlbumController extends Controller
     public function update(UpdateAlbumRequest $request, Album $album): RedirectResponse
     {
         $validated = $request->validated();
-        $artist = Artist::findOrFail($validated['artist_id']);
 
-        $album->update([
-            'artist_id' => $artist->id,
-            'artist' => $artist->name,
-            'title' => $validated['title'],
-            'release_date' => $validated['release_date'] ?? null,
-            'description' => $validated['description'] ?? null,
-            'release_status' => $validated['release_status'] ?? $album->release_status,
-            'scheduled_at' => $validated['scheduled_at'] ?? null,
-            'cover_key' => $validated['cover_key'] ?? null,
-        ]);
+        $album->update($validated);
 
         return redirect()->route('admin.albums.index')
             ->with('success', 'Album updated successfully.');
@@ -132,84 +126,26 @@ class AlbumController extends Controller
             ->with('success', 'Album deleted successfully.');
     }
 
-    public function approve(Album $album): RedirectResponse
+    /**
+     * Restore a deleted album.
+     */
+    public function restore($id): RedirectResponse
     {
-        $album->update(['release_status' => 'published']);
+        $album = Album::withTrashed()->findOrFail($id);
+        $album->restore();
 
-        return back()->with('success', 'Album approved and published.');
+        return back()->with('success', 'Album restored successfully.');
     }
 
-    public function hide(Album $album): RedirectResponse
+    /**
+     * Permanent delete.
+     */
+    public function forceDelete($id): RedirectResponse
     {
-        $album->update(['release_status' => 'rejected']);
+        $album = Album::withTrashed()->findOrFail($id);
+        $album->forceDelete();
 
-        return back()->with('success', 'Album hidden from the platform.');
-    }
-
-    public function report(Request $request, Album $album): RedirectResponse
-    {
-        $validated = $request->validate([
-            'reason' => ['required', 'string', 'max:255'],
-            'details' => ['nullable', 'string', 'max:5000'],
-        ]);
-
-        Report::create([
-            'reportable_type' => Album::class,
-            'reportable_id' => $album->id,
-            'user_id' => $request->user()?->id,
-            'reason' => $validated['reason'],
-            'details' => $validated['details'] ?? null,
-            'status' => 'open',
-        ]);
-
-        return back()->with('success', 'Album reported for moderation review.');
-    }
-
-    public function bulkModerate(Request $request): RedirectResponse
-    {
-        $validated = $request->validate([
-            'action' => ['required', 'in:approve,hide'],
-            'ids' => ['required', 'array', 'min:1'],
-            'ids.*' => ['integer', 'exists:albums,id'],
-        ]);
-
-        $updates = [
-            'approve' => ['release_status' => 'published'],
-            'hide' => ['release_status' => 'rejected'],
-        ];
-
-        Album::whereIn('id', $validated['ids'])->update($updates[$validated['action']]);
-
-        return back()->with('success', ucfirst($validated['action']).'d selected albums.');
-    }
-
-    protected function attachModerationReportData(SupportCollection $albums): void
-    {
-        if ($albums->isEmpty()) {
-            return;
-        }
-
-        $reportsByAlbum = Report::query()
-            ->where('reportable_type', Album::class)
-            ->whereIn('reportable_id', $albums->pluck('id'))
-            ->with('user')
-            ->latest()
-            ->get()
-            ->groupBy('reportable_id');
-
-        $albums->each(function (Album $album) use ($reportsByAlbum) {
-            $reports = $reportsByAlbum->get($album->id, collect());
-
-            $album->setAttribute('report_count', $reports->count());
-            $album->setAttribute('open_report_count', $reports->where('status', 'open')->count());
-            $album->setAttribute('recent_reports', $reports->take(5)->map(fn (Report $report) => [
-                'id' => $report->id,
-                'reason' => $report->reason,
-                'details' => $report->details,
-                'status' => $report->status,
-                'reporter' => $report->user?->name,
-                'created_at' => $report->created_at,
-            ])->values());
-        });
+        return redirect()->route('admin.albums.index')
+            ->with('success', 'Album permanently removed.');
     }
 }

@@ -63,7 +63,9 @@ class StreamTicketController extends Controller
         if (! $song->is_active) {
             $user = $request->user();
             $artist = $user?->artist;
-            abort_unless($artist && (int) $song->artist_id === (int) $artist->id, 404, 'Song is not available.');
+            // If user is admin or the owner artist, allow access
+            $isAuthorized = ($user && $user->role === 'admin') || ($artist && (int) $song->artist_id === (int) $artist->id);
+            abort_unless($isAuthorized, 404, 'Song is not available.');
         }
 
         $key = $song->original_key ?: $song->variant_key_320 ?: $song->variant_key_128;

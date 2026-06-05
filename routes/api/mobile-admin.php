@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\Mobile\Admin\MbAdminArtistController;
 use App\Http\Controllers\Api\Mobile\Admin\MbAdminGenreController;
 use App\Http\Controllers\Api\Mobile\Admin\MbAdminSongController;
 use App\Http\Controllers\Api\Mobile\Admin\MbAdminTagController;
+use App\Http\Controllers\Api\CatalogImageUploadController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -27,19 +28,33 @@ Route::middleware(['auth:sanctum', 'role:admin'])
         Route::get('tags', [MbAdminTagController::class, 'index'])->name('tags.index');
         Route::post('tags', [MbAdminTagController::class, 'store'])->name('tags.store');
         Route::put('tags/{tag}', [MbAdminTagController::class, 'update'])->name('tags.update');
+        Route::patch('tags/{tag}/status', [MbAdminTagController::class, 'updateStatus'])->name('tags.status');
+        Route::patch('tags/{tag}/show-as-row', [MbAdminTagController::class, 'updateShowAsRow'])->name('tags.show-as-row');
         Route::delete('tags/{tag}', [MbAdminTagController::class, 'destroy'])->name('tags.destroy');
+        Route::post('tags/{tag}/image/presign', [CatalogImageUploadController::class, 'presignTag'])
+            ->name('tags.image.presign');
+        Route::post('tags/{tag}/image', [CatalogImageUploadController::class, 'mediaTag'])
+            ->name('tags.image.store');
 
         Route::get('genres', [MbAdminGenreController::class, 'index'])->name('genres.index');
         Route::post('genres', [MbAdminGenreController::class, 'store'])->name('genres.store');
         Route::put('genres/{genre}', [MbAdminGenreController::class, 'update'])->name('genres.update');
+        Route::patch('genres/{genre}/status', [MbAdminGenreController::class, 'updateStatus'])->name('genres.status');
+        Route::patch('genres/{genre}/show-as-row', [MbAdminGenreController::class, 'updateShowAsRow'])->name('genres.show-as-row');
         Route::delete('genres/{genre}', [MbAdminGenreController::class, 'destroy'])->name('genres.destroy');
+        Route::post('genres/{genre}/image/presign', [CatalogImageUploadController::class, 'presignGenre'])
+            ->name('genres.image.presign');
+        Route::post('genres/{genre}/image', [CatalogImageUploadController::class, 'mediaGenre'])
+            ->name('genres.image.store');
 
         Route::get('albums', [MbAdminAlbumController::class, 'index'])->name('albums.index');
         Route::put('albums/{album}', [MbAdminAlbumController::class, 'update'])->name('albums.update');
+        Route::patch('albums/{album}/status', [MbAdminAlbumController::class, 'updateStatus'])->name('albums.status');
         Route::post('albums/{album}/approve', [MbAdminAlbumController::class, 'approve'])->name('albums.approve');
         Route::post('albums/{album}/hide', [MbAdminAlbumController::class, 'hide'])->name('albums.hide');
         Route::post('albums/{album}/report', [MbAdminAlbumController::class, 'report'])->name('albums.report');
 
+        Route::patch('songs/{song}/status', [MbAdminSongController::class, 'updateStatus'])->name('songs.status');
         Route::post('songs/{song}/approve', [MbAdminSongController::class, 'approve'])->name('songs.approve');
         Route::post('songs/{song}/hide', [MbAdminSongController::class, 'hide'])->name('songs.hide');
         Route::post('songs/{song}/report', [MbAdminSongController::class, 'report'])->name('songs.report');

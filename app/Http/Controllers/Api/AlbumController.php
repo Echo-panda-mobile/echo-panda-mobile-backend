@@ -55,6 +55,7 @@ class AlbumController extends Controller
             'release_date' => $album->release_date,
             'description' => $album->description,
             'release_status' => $album->release_status,
+            'is_active' => (bool) ($album->is_active ?? true),
             'scheduled_at' => $album->scheduled_at,
             'cover_key' => $album->cover_key,
             'cover_url' => $coverUrl,
@@ -109,6 +110,44 @@ class AlbumController extends Controller
         );
 
         return response()->json($albums);
+    }
+
+    /**
+     * Return albums released today (real-time new releases).
+     */
+    public function newReleasesToday(Request $request): JsonResponse
+    {
+        $limit = min(max((int) $request->get('limit', 10), 1), 50);
+
+        $todayAlbums = Album::query()
+            ->with(['artistModel', 'songs'])
+            ->where('is_active', true)
+            ->where('release_status', 'published')
+            ->whereDate('release_date', today())
+            ->orderByDesc('release_date')
+            ->orderByDesc('created_at')
+            ->limit($limit)
+            ->get();
+
+        if ($todayAlbums->isEmpty()) {
+            $todayAlbums = Album::query()
+                ->with(['artistModel', 'songs'])
+                ->where('is_active', true)
+                ->where('release_status', 'published')
+                ->orderByDesc('release_date')
+                ->orderByDesc('created_at')
+                ->limit($limit)
+                ->get();
+        }
+
+        return response()->json([
+            'data' => $todayAlbums->map(fn (Album $album) => $this->transformAlbum($album))->values(),
+            'meta' => [
+                'mode' => 'today',
+                'count' => $todayAlbums->count(),
+                'date' => today()->toDateString(),
+            ],
+        ]);
     }
 
     /**

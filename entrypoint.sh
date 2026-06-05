@@ -1,58 +1,36 @@
 #!/bin/bash
-
 set -e
 
-# Change to the application directory
 cd /var/www/html
 
-# Check for Composer autoloader instead of only the vendor directory.
-# A bind mount can contain an empty/incomplete vendor folder.
-if [ ! -f "vendor/autoload.php" ]; then
-    echo "Running composer install..."
-    composer install --no-interaction --no-ansi 2>&1 || true
-    # If composer still failed, show vendor status
-    if [ ! -f "vendor/autoload.php" ]; then
-        echo "Composer install may have failed, checking vendor directory..."
-        ls -la vendor/ 2>/dev/null | head -20 || echo "vendor directory is empty"
-    fi
-else
-    echo "vendor/autoload.php exists. Skipping composer install."
-fi
+echo "⏳ Waiting for database..."
+until php -r "
+new PDO(
+  'pgsql:host=${DB_HOST};port=${DB_PORT:-5432};dbname=${DB_DATABASE}',
+  '${DB_USERNAME}',
+  '${DB_PASSWORD}'
+);
+" 2>/dev/null; do
+  echo "  DB not ready, retrying in 2s..."
+  sleep 2
+done
+echo "✅ Database ready"
 
-if [ ! -f .env ]; then
-    cp .env.example .env
-fi
+echo "📁 Creating storage directories..."
+mkdir -p /var/www/html/storage/framework/cache/data
+mkdir -p /var/www/html/storage/framework/sessions
+mkdir -p /var/www/html/storage/framework/views
+chown -R www-data:www-data /var/www/html/storage
+chmod -R 775 /var/www/html/storage
 
-php artisan key:generate --force
-
-# If not, generate it. This is crucial for Laravel's security features.
-if grep -qE '^APP_KEY=\s*$' .env || ! grep -q '^APP_KEY=' .env; then
-    echo "Generating application key..."
-    php artisan key:generate
-else
-    echo "Application key already exists."
-fi
-
-# php artisan key:generate
-
-# Check if node_modules directory exists and run npm install if not
-if [ ! -d "node_modules" ]; then
-    echo "Running npm install..."
-    npm install
-else
-    echo "node_modules directory already exists. Skipping npm install."
-fi
+echo "🗄️  Running migrations..."
 php artisan migrate --force
 
-# Run npm build if node_modules exists, to compile assets.
-if [ -d "node_modules" ]; then
-    echo "Running npm run build..."
-    npm run build
-else
-    echo "node_modules not found, skipping npm run build."
-fi
+echo "⚙️  Caching config, routes, views..."
+php artisan view:cache
+php artisan config:cache
+php artisan route:cache
 
-chown -R $USER:www-data storage bootstrap/cache
-chmod -R 775 storage bootstrap/cache
-# Execute the main command passed to the script (e.g., "php-fpm").
+
+echo "✅ App ready, starting php-fpm..."
 exec "$@"

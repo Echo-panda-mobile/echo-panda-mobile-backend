@@ -14,6 +14,7 @@ class TagController extends Controller
 {
     public function index(Request $request): Response
     {
+        $this->authorize('viewAny', Tag::class);
         $tags = Tag::orderBy('name')->get();
 
         return Inertia::render('Admin/Tags/Index', ['tags' => $tags]);
@@ -21,6 +22,7 @@ class TagController extends Controller
 
     public function store(Request $request)
     {
+        $this->authorize('create', Tag::class);
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:191', 'unique:tags,name'],
         ]);
@@ -35,6 +37,7 @@ class TagController extends Controller
 
     public function update(Request $request, Tag $tag)
     {
+        $this->authorize('update', $tag);
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:191', Rule::unique('tags', 'name')->ignore($tag->id)],
         ]);
@@ -49,6 +52,7 @@ class TagController extends Controller
 
     public function destroy(Tag $tag)
     {
+        $this->authorize('delete', $tag);
         $tag->delete();
 
         return back()->with('success', 'Tag deleted');

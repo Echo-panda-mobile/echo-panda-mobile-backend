@@ -4,15 +4,25 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Filesystem\FilesystemAdapter;
+use Illuminate\Support\Facades\Storage;
 
 class Song extends Model
 {
     /** @use HasFactory<\Database\Factories\SongFactory> */
-    use HasFactory;
+    use HasFactory, SoftDeletes;
+
+    /**
+     * The accessors to append to the model's array form.
+     *
+     * @var array
+     */
+    protected $appends = ['cover_url', 'audio_url'];
 
     /**
      * The attributes that are mass assignable.
@@ -43,6 +53,7 @@ class Song extends Model
         'play_count',
         'published_at',
         'original_key',
+        'lyrics_url',
         'variant_key_128',
         'variant_key_320',
         'cover_key',
@@ -63,6 +74,74 @@ class Song extends Model
             'is_active' => 'boolean',
             'published_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Get the cover image URL with multi-disk support.
+     */
+    public function getCoverUrlAttribute()
+    {
+        $path = $this->attributes['cover_key'] ?? null;
+        if (!$path) return null;
+
+        if (filter_var($path, FILTER_VALIDATE_URL)) {
+            return $path;
+        }
+
+        /** @var FilesystemAdapter $publicDisk */
+        $publicDisk = Storage::disk('public');
+        if ($publicDisk->exists($path)) {
+            return $publicDisk->url($path);
+        }
+
+        try {
+            /** @var FilesystemAdapter $s3Disk */
+            $s3Disk = Storage::disk('s3');
+            return $s3Disk->temporaryUrl($path, now()->addMinutes(60));
+        } catch (\Exception $e) {
+            /** @var FilesystemAdapter $s3Disk */
+            $s3Disk = Storage::disk('s3');
+            return $s3Disk->url($path);
+        }
+    }
+
+    /**
+     * Get the audio source URL with multi-disk support.
+     */
+    public function getAudioUrlAttribute()
+    {
+        $path = $this->attributes['original_key']
+            ?? $this->attributes['variant_key_320']
+            ?? $this->attributes['variant_key_128']
+            ?? null;
+
+        if (!$path) return null;
+
+        if (filter_var($path, FILTER_VALIDATE_URL)) {
+            return $path;
+        }
+
+        /** @var FilesystemAdapter $publicDisk */
+        $publicDisk = \Illuminate\Support\Facades\Storage::disk('public');
+        if ($publicDisk->exists($path)) {
+            return $publicDisk->url($path);
+        }
+
+        /** @var FilesystemAdapter $s3Disk */
+        $s3Disk = \Illuminate\Support\Facades\Storage::disk('s3');
+        try {
+            return $s3Disk->temporaryUrl($path, now()->addMinutes(60));
+        } catch (\Exception $e) {
+            return $s3Disk->url($path);
+        }
+    }
+
+    /**
+     * Get the genre/category for the song.
+     */
+    public function genre(): BelongsTo
+    {
+        return $this->belongsTo(Genre::class, 'category_id');
     }
 
     /**

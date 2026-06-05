@@ -7,6 +7,7 @@ use App\Http\Requests\Api\UpdateProfileRequest;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class ProfileController extends Controller
 {
@@ -36,22 +37,48 @@ class ProfileController extends Controller
         $artist = $user->artist;
 
         return response()->json([
-            'user' => [
-                'id' => $user->id,
-                'user_id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
-                'role' => $user->role,
-                'artist_id' => $artist?->id,
-                'artist' => $artist ? [
-                    'id' => $artist->id,
-                    'name' => $artist->name,
-                    'image_url' => $artist->image_url,
-                ] : null,
-                'created_at' => $user->created_at,
-                'updated_at' => $user->updated_at,
-            ],
+            'user' => $this->serializeUser($user),
         ]);
+    }
+
+    protected function serializeUser($user): array
+    {
+        $artist = $user->artist;
+
+        return [
+            'id' => $user->id,
+            'user_id' => $user->id,
+            'name' => $user->name,
+            'email' => $user->email,
+            'role' => $user->role,
+            'image_url' => $user->image_url,
+            'artist_id' => $artist?->id,
+            'artist' => $artist ? [
+                'id' => $artist->id,
+                'name' => $artist->name,
+                'image_url' => $artist->image_url,
+            ] : null,
+            'created_at' => $user->created_at,
+            'updated_at' => $user->updated_at,
+        ];
+    }
+
+    protected function assertUserOwnsImageKey($user, ?string $imageKey): void
+    {
+        if (! $imageKey) {
+            return;
+        }
+
+        $userSlug = \Illuminate\Support\Str::slug($user->name ?: 'user-' . $user->id);
+        $expectedPrefix = "images/user-images/{$userSlug}/";
+
+        if (! str_starts_with($imageKey, $expectedPrefix)) {
+            abort(422, 'The provided image does not belong to this user.');
+        }
+
+        if (! Storage::disk('s3')->exists($imageKey)) {
+            abort(422, 'The uploaded image could not be found in storage.');
+        }
     }
 
     /**
@@ -61,7 +88,7 @@ class ProfileController extends Controller
     {
         $user = $request->user();
         $validated = $request->validated();
-        $imageUrl = $this->keyFromUrlOrKey($validated['image_url'] ?? null);
+        $imageKey = $this->keyFromUrlOrKey($validated['image_url'] ?? null);
         unset($validated['image_url']);
 
         if ($user->artist) {
@@ -76,31 +103,17 @@ class ProfileController extends Controller
             ]);
         }
 
-        if ($user->artist && $imageUrl !== null) {
-            $user->artist->update([
-                'image_url' => $imageUrl,
-            ]);
+        if ($imageKey !== null && $imageKey !== $user->storedImageKey()) {
+            $this->assertUserOwnsImageKey($user, $imageKey);
+            $user->deleteStoredImage();
+            $user->update(['image_url' => $imageKey]);
         }
 
-        $artist = $user->artist;
+        $user->refresh();
 
         return response()->json([
             'message' => 'Profile updated successfully',
-            'user' => [
-                'id' => $user->id,
-                'user_id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
-                'role' => $user->role,
-                'artist_id' => $artist?->id,
-                'artist' => $artist ? [
-                    'id' => $artist->id,
-                    'name' => $artist->name,
-                    'image_url' => $artist->image_url,
-                ] : null,
-                'created_at' => $user->created_at,
-                'updated_at' => $user->updated_at,
-            ],
+            'user' => $this->serializeUser($user),
         ]);
     }
 

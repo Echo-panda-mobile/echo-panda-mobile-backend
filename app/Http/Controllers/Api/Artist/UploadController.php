@@ -50,7 +50,7 @@ class UploadController extends Controller
     protected function mediaSpecForPurpose(string $purpose): array
     {
         return match ($purpose) {
-            'album_cover', 'song_cover', 'artist_image' => [
+            'album_cover', 'song_cover', 'artist_image', 'playlist_cover' => [
                 'folder' => 'images',
                 'max_bytes' => 5 * 1024 * 1024,
             ],
@@ -103,18 +103,26 @@ class UploadController extends Controller
     public function presignMedia(Request $request): JsonResponse
     {
         $request->validate([
-            'purpose' => ['required', 'string', 'in:album_cover,song_cover,song_audio,artist_image,song_lyrics'],
+            'purpose' => ['required', 'string', 'in:album_cover,song_cover,song_audio,artist_image,song_lyrics,playlist_cover'],
             'filename' => ['required', 'string', 'max:255'],
             'content_type' => ['required', 'string', 'max:255'],
             'size' => ['required', 'integer', 'min:1'],
         ]);
 
-        $artist = $this->artistForRequest($request);
-        if (! $artist) {
-            return response()->json(['message' => 'Artist profile not found for this user.'], 403);
+        $purpose = $request->string('purpose')->toString();
+
+        // Playlist covers can be uploaded by any authenticated user
+        if ($purpose !== 'playlist_cover') {
+            $artist = $this->artistForRequest($request);
+            if (! $artist) {
+                return response()->json(['message' => 'Artist profile not found for this user.'], 403);
+            }
+            $ownerSlug = Str::slug($artist->name ?: 'artist-'.$artist->id);
+        } else {
+            $user = $request->user();
+            $ownerSlug = 'user-'.$user->id;
         }
 
-        $purpose = $request->string('purpose')->toString();
         $filename = basename($request->string('filename')->toString());
         $contentType = strtolower(trim($request->string('content_type')->toString()));
         $size = (int) $request->integer('size');
@@ -126,16 +134,16 @@ class UploadController extends Controller
             ]);
         }
 
-        $artistSlug = Str::slug($artist->name ?: 'artist-'.$artist->id);
         $uuid = (string) Str::uuid();
         $extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION)) ?: $this->extensionFromContentType($contentType);
 
         $key = match ($purpose) {
-            'album_cover' => "images/album-covers/{$artistSlug}/{$uuid}.{$extension}",
-            'song_cover' => "images/song-covers/{$artistSlug}/{$uuid}.{$extension}",
-            'artist_image' => "images/artist-images/{$artistSlug}/{$uuid}.{$extension}",
-            'song_audio' => "audio/original/{$artistSlug}/{$uuid}.{$extension}",
-            'song_lyrics' => "lyrics/synced/{$artistSlug}/{$uuid}.{$extension}",
+            'album_cover' => "images/album-covers/{$ownerSlug}/{$uuid}.{$extension}",
+            'song_cover' => "images/song-covers/{$ownerSlug}/{$uuid}.{$extension}",
+            'artist_image' => "images/artist-images/{$ownerSlug}/{$uuid}.{$extension}",
+            'playlist_cover' => "images/playlist-covers/{$ownerSlug}/{$uuid}.{$extension}",
+            'song_audio' => "audio/original/{$ownerSlug}/{$uuid}.{$extension}",
+            'song_lyrics' => "lyrics/synced/{$ownerSlug}/{$uuid}.{$extension}",
         };
 
         /** @var \Illuminate\Filesystem\AwsS3V3Adapter $disk */
@@ -175,18 +183,26 @@ class UploadController extends Controller
     {
         $request->validate([
             'file' => ['required', 'file'],
-            'purpose' => ['required', 'string', 'in:album_cover,song_cover,song_audio,artist_image,song_lyrics'],
+            'purpose' => ['required', 'string', 'in:album_cover,song_cover,song_audio,artist_image,song_lyrics,playlist_cover'],
         ]);
 
-        $artist = $this->artistForRequest($request);
-        if (! $artist) {
-            return response()->json(['message' => 'Artist profile not found for this user.'], 403);
+        $purpose = $request->string('purpose')->toString();
+
+        if ($purpose !== 'playlist_cover') {
+            $artist = $this->artistForRequest($request);
+            if (! $artist) {
+                return response()->json(['message' => 'Artist profile not found for this user.'], 403);
+            }
+            $ownerSlug = Str::slug($artist->name ?: 'artist-'.$artist->id);
+            $owner = $artist;
+        } else {
+            $owner = $request->user();
+            $ownerSlug = 'user-'.$owner->id;
         }
 
         $file = $request->file('file');
-        $purpose = $request->string('purpose')->toString();
 
-        if (in_array($purpose, ['album_cover', 'song_cover', 'artist_image'], true)) {
+        if (in_array($purpose, ['album_cover', 'song_cover', 'artist_image', 'playlist_cover'], true)) {
             $request->validate([
                 'file' => 'image|max:2048',
             ]);
@@ -200,17 +216,23 @@ class UploadController extends Controller
             'album_cover' => 'images/album-covers',
             'song_cover' => 'images/song-covers',
             'artist_image' => 'images/artist-images',
+            'playlist_cover' => 'images/playlist-covers',
             'song_audio' => 'audio/original',
             'song_lyrics' => 'lyrics/synced',
         };
 
-        $stored = $this->storeFileToS3($file, $folder, $artist);
+        // We need a small helper to handle folder/slug logic consistently
+        $ext = $file->getClientOriginalExtension();
+        $uuid = (string) Str::uuid();
+        $key = trim($folder, '/')."/{$ownerSlug}/{$uuid}.{$ext}";
+
+        Storage::disk('s3')->put($key, fopen($file->getRealPath(), 'r'));
 
         return response()->json([
             'message' => 'File uploaded successfully.',
             'purpose' => $purpose,
-            'key' => $stored['key'],
-            'url' => $stored['url'],
+            'key' => $key,
+            'url' => $this->publicS3Url($key),
         ]);
     }
 

@@ -23,7 +23,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'firebase.auth' => \App\Http\Middleware\FirebaseAuthMiddleware::class,
         ]);
 
-        //
+        $middleware->redirectGuestsTo(fn ($request) => $request->expectsJson() ? null : route('login'));
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

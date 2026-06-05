@@ -6,8 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreSongRequest;
 use App\Http\Requests\UpdateSongRequest;
 use App\Jobs\ProcessUploadedSong;
+use App\Models\Lyric;
 use App\Models\Song;
 use App\Models\Genre;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -35,14 +37,16 @@ class SongController extends Controller
             'duration' => $song->duration,
             'track_number' => $song->track_number,
             'lyrics' => $song->lyrics,
+            'lyrics_url' => $song->lyrics_url,
             'category_id' => $song->category_id,
+            'tag_id' => $song->tag_id,
             'genre' => $song->category_id ? Genre::find($song->category_id) : null,
             'mood' => $song->mood,
             'song_type' => $song->song_type,
             'bpm' => $song->bpm,
             'is_explicit' => (bool) $song->is_explicit,
             'featured_artists' => $song->featured_artists,
-            'audio_url' => $song->original_key ?: $song->variant_key_320 ?: $song->variant_key_128,
+            'audio_url' => $song->audio_url,
             'original_key' => $song->original_key,
             'variant_key_320' => $song->variant_key_320,
             'variant_key_128' => $song->variant_key_128,
@@ -51,10 +55,50 @@ class SongController extends Controller
             'processing_status' => $song->processing_status,
             'published_at' => $song->published_at,
             'play_count' => $song->play_count,
+            'is_active' => (bool) ($song->is_active ?? true),
             'created_at' => $song->created_at,
             'updated_at' => $song->updated_at,
             'album' => $song->album,
         ];
+    }
+
+    /**
+     * Backfill artist_id for legacy songs owned via album or display name.
+     */
+    protected function repairSongArtistLink(?User $user, Song $song): void
+    {
+        if (! $user || $user->isAdmin()) {
+            return;
+        }
+
+        $artist = $user->artist;
+        if (! $artist) {
+            return;
+        }
+
+        if ((int) $song->artist_id === (int) $artist->id) {
+            return;
+        }
+
+        $song->loadMissing(['album', 'artistModel']);
+
+        if ($song->album && (int) $song->album->artist_id === (int) $artist->id) {
+            $song->forceFill([
+                'artist_id' => $artist->id,
+                'artist' => $artist->name,
+            ])->save();
+
+            return;
+        }
+
+        $songName = trim((string) ($song->artist ?? $song->artistModel?->name ?? ''));
+        $artistName = trim((string) $artist->name);
+        if ($songName !== '' && $artistName !== '' && strcasecmp($songName, $artistName) === 0) {
+            $song->forceFill([
+                'artist_id' => $artist->id,
+                'artist' => $artist->name,
+            ])->save();
+        }
     }
 
     protected function resolveGenreId(mixed $value): ?int
@@ -82,6 +126,71 @@ class SongController extends Controller
         return null;
     }
 
+    protected function parseLyricsLines(string $lyrics): array
+    {
+        $lyrics = trim($lyrics);
+
+        if ($lyrics === '') {
+            return [];
+        }
+
+        $hasTimestamps = (bool) preg_match('/^\[\d{2}:\d{2}(?:\.\d{1,3})?\]/m', $lyrics);
+        if ($hasTimestamps) {
+            $lines = preg_split('/\r\n|\r|\n/', $lyrics) ?: [];
+            $parsed = [];
+
+            foreach ($lines as $line) {
+                if (! preg_match('/^\[(\d{2}):(\d{2})(?:\.(\d{1,3}))?\](.*)$/', trim($line), $matches)) {
+                    continue;
+                }
+
+                $minutes = (int) $matches[1];
+                $seconds = (int) $matches[2];
+                $fraction = isset($matches[3]) ? (int) str_pad($matches[3], 3, '0') : 0;
+
+                $parsed[] = [
+                    'time_ms' => ($minutes * 60 * 1000) + ($seconds * 1000) + $fraction,
+                    'text' => trim($matches[4]),
+                ];
+            }
+
+            usort($parsed, fn (array $a, array $b) => $a['time_ms'] <=> $b['time_ms']);
+
+            return $parsed;
+        }
+
+        return array_values(array_filter(array_map(
+            fn (string $line): array => [
+                'time_ms' => 0,
+                'text' => trim($line),
+            ],
+            preg_split('/\r\n|\r|\n/', $lyrics) ?: []
+        ), fn (array $line): bool => $line['text'] !== ''));
+    }
+
+    protected function syncLyricRecord(Song $song, array $payload): void
+    {
+        $lyrics = trim((string) ($payload['lyrics'] ?? ''));
+
+        if ($lyrics === '') {
+            if ($song->lyric) {
+                $song->lyric()->delete();
+            }
+
+            return;
+        }
+
+        $song->lyric()->updateOrCreate(
+            ['song_id' => $song->id],
+            [
+                'format' => preg_match('/^\[\d{2}:\d{2}(?:\.\d{1,3})?\]/m', $lyrics) ? 'lrc' : 'plain',
+                'lrc_content' => $lyrics,
+                'parsed_json' => $this->parseLyricsLines($lyrics),
+                'language' => $payload['language'] ?? null,
+            ]
+        );
+    }
+
     /**
      * Display a listing of songs.
      */
@@ -103,6 +212,17 @@ class SongController extends Controller
         if ($request->has('album_id')) {
             $query->where('album_id', $request->get('album_id'));
         }
+
+        // Filter by genre (category) or tag
+        if ($request->filled('category_id')) {
+            $query->where('category_id', $request->get('category_id'));
+        }
+
+        if ($request->filled('tag_id')) {
+            $query->where('tag_id', $request->get('tag_id'));
+        }
+
+        $query->where('is_active', true);
 
         // Sort by track number or latest
         $sortBy = $request->get('sort_by', 'track_number');
@@ -146,6 +266,9 @@ class SongController extends Controller
         $song = Song::create($payload);
         $song->load(['album', 'artistModel']);
 
+        $this->syncLyricRecord($song, $payload);
+        $song->refresh()->load(['album', 'artistModel', 'lyric']);
+
         if (! empty($song->original_key)) {
             ProcessUploadedSong::dispatch($song->id)->afterCommit();
         }
@@ -171,6 +294,8 @@ class SongController extends Controller
      */
     public function update(UpdateSongRequest $request, Song $song): JsonResponse
     {
+        $this->repairSongArtistLink($request->user(), $song);
+        $song->refresh();
         $this->authorize('update', $song);
 
         $validated = $request->validated();
@@ -181,6 +306,9 @@ class SongController extends Controller
 
         $song->update($validated);
         $song->load(['album', 'artistModel']);
+
+        $this->syncLyricRecord($song, $validated);
+        $song->refresh()->load(['album', 'artistModel', 'lyric']);
 
         if (! empty($validated['original_key'] ?? null)) {
             $song->processing_status = 'uploaded';
@@ -200,6 +328,8 @@ class SongController extends Controller
      */
     public function destroy(Song $song): JsonResponse
     {
+        $this->repairSongArtistLink(request()->user(), $song);
+        $song->refresh();
         $this->authorize('delete', $song);
 
         $song->delete();

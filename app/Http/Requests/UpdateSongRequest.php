@@ -28,13 +28,16 @@ class UpdateSongRequest extends FormRequest
             'duration' => ['required', 'integer', 'min:1'],
             'track_number' => ['required', 'integer', 'min:1'],
             'lyrics' => ['nullable', 'string'],
-            'category_id' => ['nullable', 'string', 'max:255'],
+            // Accept genre id (int), slug, or name — resolved in SongController::resolveGenreId()
+            'category_id' => ['nullable', 'max:255'],
+            'tag_id' => ['nullable', 'integer', 'exists:tags,id'],
             'mood' => ['nullable', 'string', 'max:100'],
             'song_type' => ['nullable', 'string', 'max:100'],
             'bpm' => ['nullable', 'integer', 'min:0'],
             'is_explicit' => ['nullable', 'boolean'],
             'featured_artists' => ['nullable', 'string'],
             'original_key' => ['nullable', 'string', 'max:1024'],
+            'lyrics_url' => ['nullable', 'string', 'max:1024'],
             'cover_key' => ['nullable', 'string', 'max:1024'],
             'preview_key' => ['nullable', 'string', 'max:1024'],
         ];

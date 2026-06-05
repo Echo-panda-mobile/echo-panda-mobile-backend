@@ -10,14 +10,14 @@ use App\Models\Song;
 use App\Models\Album;
 use App\Models\Report;
 use App\Models\Genre;
-use App\Models\FeaturedItem;
+use App\Models\Tag;
 
 use App\Policies\ArtistPolicy;
 use App\Policies\SongPolicy;
 use App\Policies\AlbumPolicy;
 use App\Policies\ReportPolicy;
 use App\Policies\GenrePolicy;
-use App\Policies\FeaturedItemPolicy;
+use App\Policies\TagPolicy;
 use App\Policies\UserPolicy;
 
 class AuthServiceProvider extends ServiceProvider
@@ -28,7 +28,7 @@ class AuthServiceProvider extends ServiceProvider
         Album::class => AlbumPolicy::class,
         Report::class => ReportPolicy::class,
         Genre::class => GenrePolicy::class,
-        FeaturedItem::class => FeaturedItemPolicy::class,
+        Tag::class => TagPolicy::class,
         \App\Models\User::class => UserPolicy::class,
     ];
 

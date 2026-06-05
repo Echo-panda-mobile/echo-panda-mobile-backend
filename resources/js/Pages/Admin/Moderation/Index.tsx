@@ -17,7 +17,6 @@ interface SongReportGroup {
     artist?: string | null;
     album?: string | null;
     is_active: boolean;
-    play_count: number;
     reports: QueueReport[];
 }
 
@@ -26,23 +25,28 @@ interface AlbumReportGroup {
     title: string;
     artist?: string | null;
     release_status?: string | null;
-    songs_count: number;
+    reports: QueueReport[];
+}
+
+interface ArtistReportGroup {
+    id: number;
+    name: string;
+    is_active: boolean;
     reports: QueueReport[];
 }
 
 interface Props extends PageProps {
     songReports: SongReportGroup[];
     albumReports: AlbumReportGroup[];
+    artistReports: ArtistReportGroup[];
     openReportsCount: number;
 }
 
-export default function Index({ songReports, albumReports, openReportsCount }: Props) {
-    const dismissReport = (reportId: number) => {
-        if (confirm('Dismiss this report?')) {
-            router.delete(route('admin.reports.destroy', reportId), {
-                preserveScroll: true,
-            });
-        }
+export default function Index({ songReports, albumReports, artistReports, openReportsCount }: Props) {
+    const handleAction = (reportId: number, action: 'review' | 'remove' | 'ignore') => {
+        router.post(route('admin.reports.action', reportId), { action }, {
+            preserveScroll: true,
+        });
     };
 
     const formatDate = (value: string) => new Date(value).toLocaleString();
@@ -55,69 +59,44 @@ export default function Index({ songReports, albumReports, openReportsCount }: P
                 <div className="rounded-[1.75rem] border border-white/10 bg-white/5 p-6 shadow-lg shadow-slate-950/20 backdrop-blur-sm">
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                         <div>
-                            <div className="text-xs font-semibold uppercase tracking-[0.35em] text-cyan-300/70">Open reports</div>
+                            <div className="text-xs font-semibold uppercase tracking-[0.35em] text-cyan-300/70">Safety Protocol</div>
                             <h2 className="mt-2 text-3xl font-black text-white">Moderation Queue</h2>
                             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">
-                                Review open song and album reports in one place, then jump to the underlying item or dismiss completed reports.
+                                Review user reports for copyright, inappropriate content, or policy violations. Take enforcement actions to maintain platform integrity.
                             </p>
                         </div>
                         <div className="rounded-3xl border border-white/10 bg-slate-950/40 px-5 py-4 text-right">
-                            <div className="text-xs uppercase tracking-[0.35em] text-slate-500">Open reports</div>
+                            <div className="text-xs uppercase tracking-[0.35em] text-slate-500">Pending items</div>
                             <div className="mt-1 text-3xl font-black text-white">{openReportsCount}</div>
                         </div>
                     </div>
                 </div>
 
-                <div className="grid gap-6 xl:grid-cols-2">
-                    <section className="rounded-[1.75rem] border border-white/10 bg-slate-950/50 p-6 shadow-2xl shadow-slate-950/20 backdrop-blur-sm">
-                        <div className="flex items-center justify-between gap-4">
-                            <div>
-                                <div className="text-xs font-semibold uppercase tracking-[0.35em] text-emerald-300/70">Song reports</div>
-                                <h3 className="mt-2 text-2xl font-black text-white">Tracks under review</h3>
-                            </div>
-                            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-sm text-slate-300">{songReports.length} songs</span>
+                <div className="grid gap-8 xl:grid-cols-3">
+                    {/* Song Reports */}
+                    <section className="space-y-4">
+                        <div className="flex items-center justify-between px-2">
+                            <h3 className="text-xl font-black text-white uppercase tracking-tight">Song Reports</h3>
+                            <span className="text-xs font-bold text-slate-500">{songReports.length} flagged</span>
                         </div>
-
-                        <div className="mt-6 space-y-4">
+                        <div className="space-y-4">
                             {songReports.length === 0 ? (
-                                <div className="rounded-2xl border border-white/10 bg-white/5 p-5 text-sm text-slate-400">No open song reports.</div>
+                                <div className="rounded-2xl border border-white/5 bg-white/5 p-6 text-center text-sm text-slate-500">Clear queue</div>
                             ) : (
                                 songReports.map((song) => (
-                                    <div key={song.id} className="rounded-3xl border border-white/10 bg-white/5 p-5">
-                                        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                                            <div>
-                                                <div className="flex flex-wrap items-center gap-2">
-                                                    <h4 className="text-lg font-bold text-white">{song.title}</h4>
-                                                    <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${song.is_active ? 'bg-emerald-400/15 text-emerald-200 ring-1 ring-emerald-400/20' : 'bg-rose-400/15 text-rose-200 ring-1 ring-rose-400/20'}`}>
-                                                        {song.is_active ? 'Approved' : 'Hidden'}
-                                                    </span>
-                                                </div>
-                                                <p className="mt-1 text-sm text-slate-400">{song.artist || 'Unknown artist'} · {song.album || 'No album'}</p>
-                                                <p className="mt-1 text-sm text-slate-500">{song.play_count} plays</p>
+                                    <div key={song.id} className="rounded-3xl border border-white/10 bg-slate-950/50 p-5 backdrop-blur-sm">
+                                        <div className="mb-4">
+                                            <div className="flex items-start justify-between gap-2">
+                                                <h4 className="font-bold text-white line-clamp-1">{song.title}</h4>
+                                                <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-widest ${song.is_active ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
+                                                    {song.is_active ? 'Active' : 'Hidden'}
+                                                </span>
                                             </div>
-                                            <div className="flex flex-wrap gap-2">
-                                                <Link href={route('admin.songs.show', song.id)} className="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-2 text-sm font-semibold text-cyan-100">Open song</Link>
-                                                <Link href={route('admin.songs.edit', song.id)} className="rounded-full border border-fuchsia-400/20 bg-fuchsia-400/10 px-3 py-2 text-sm font-semibold text-fuchsia-100">Edit</Link>
-                                            </div>
+                                            <p className="text-xs text-slate-400 mt-1">{song.artist || 'Unknown'}</p>
                                         </div>
-
-                                        <div className="mt-5 space-y-3">
+                                        <div className="space-y-3">
                                             {song.reports.map((report) => (
-                                                <div key={report.id} className="rounded-2xl border border-white/10 bg-slate-950/40 p-4">
-                                                    <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                                                        <div>
-                                                            <div className="font-semibold text-white">{report.reason}</div>
-                                                            <div className="mt-1 text-sm text-slate-400">{report.reporter || 'Anonymous'} · {formatDate(report.created_at)}</div>
-                                                        </div>
-                                                        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${report.status === 'open' ? 'bg-amber-400/15 text-amber-200 ring-1 ring-amber-400/20' : 'bg-emerald-400/15 text-emerald-200 ring-1 ring-emerald-400/20'}`}>
-                                                            {report.status}
-                                                        </span>
-                                                    </div>
-                                                    {report.details && <div className="mt-3 text-sm leading-6 text-slate-300">{report.details}</div>}
-                                                    <div className="mt-4 flex justify-end">
-                                                        <button type="button" onClick={() => dismissReport(report.id)} className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm font-semibold text-slate-200">Dismiss report</button>
-                                                    </div>
-                                                </div>
+                                                <ReportItem key={report.id} report={report} onAction={handleAction} formatDate={formatDate} />
                                             ))}
                                         </div>
                                     </div>
@@ -126,54 +105,61 @@ export default function Index({ songReports, albumReports, openReportsCount }: P
                         </div>
                     </section>
 
-                    <section className="rounded-[1.75rem] border border-white/10 bg-slate-950/50 p-6 shadow-2xl shadow-slate-950/20 backdrop-blur-sm">
-                        <div className="flex items-center justify-between gap-4">
-                            <div>
-                                <div className="text-xs font-semibold uppercase tracking-[0.35em] text-amber-300/70">Album reports</div>
-                                <h3 className="mt-2 text-2xl font-black text-white">Releases under review</h3>
-                            </div>
-                            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-sm text-slate-300">{albumReports.length} albums</span>
+                    {/* Artist Reports */}
+                    <section className="space-y-4">
+                        <div className="flex items-center justify-between px-2">
+                            <h3 className="text-xl font-black text-white uppercase tracking-tight">Artist Reports</h3>
+                            <span className="text-xs font-bold text-slate-500">{artistReports.length} flagged</span>
                         </div>
-
-                        <div className="mt-6 space-y-4">
-                            {albumReports.length === 0 ? (
-                                <div className="rounded-2xl border border-white/10 bg-white/5 p-5 text-sm text-slate-400">No open album reports.</div>
+                        <div className="space-y-4">
+                            {artistReports.length === 0 ? (
+                                <div className="rounded-2xl border border-white/5 bg-white/5 p-6 text-center text-sm text-slate-500">Clear queue</div>
                             ) : (
-                                albumReports.map((album) => (
-                                    <div key={album.id} className="rounded-3xl border border-white/10 bg-white/5 p-5">
-                                        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                                            <div>
-                                                <div className="flex flex-wrap items-center gap-2">
-                                                    <h4 className="text-lg font-bold text-white">{album.title}</h4>
-                                                    <span className="rounded-full border border-white/10 bg-slate-950/40 px-2.5 py-1 text-xs font-semibold text-slate-200 capitalize">
-                                                        {album.release_status || 'draft'}
-                                                    </span>
-                                                </div>
-                                                <p className="mt-1 text-sm text-slate-400">{album.artist || 'Unknown artist'} · {album.songs_count} songs</p>
-                                            </div>
-                                            <div className="flex flex-wrap gap-2">
-                                                <Link href={route('admin.albums.show', album.id)} className="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-2 text-sm font-semibold text-cyan-100">Open album</Link>
-                                                <Link href={route('admin.albums.edit', album.id)} className="rounded-full border border-fuchsia-400/20 bg-fuchsia-400/10 px-3 py-2 text-sm font-semibold text-fuchsia-100">Edit</Link>
+                                artistReports.map((artist) => (
+                                    <div key={artist.id} className="rounded-3xl border border-white/10 bg-slate-950/50 p-5 backdrop-blur-sm">
+                                        <div className="mb-4">
+                                            <div className="flex items-start justify-between gap-2">
+                                                <h4 className="font-bold text-white line-clamp-1">{artist.name}</h4>
+                                                <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-widest ${artist.is_active ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
+                                                    {artist.is_active ? 'Active' : 'Suspended'}
+                                                </span>
                                             </div>
                                         </div>
+                                        <div className="space-y-3">
+                                            {artist.reports.map((report) => (
+                                                <ReportItem key={report.id} report={report} onAction={handleAction} formatDate={formatDate} />
+                                            ))}
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </section>
 
-                                        <div className="mt-5 space-y-3">
+                    {/* Album Reports */}
+                    <section className="space-y-4">
+                        <div className="flex items-center justify-between px-2">
+                            <h3 className="text-xl font-black text-white uppercase tracking-tight">Album Reports</h3>
+                            <span className="text-xs font-bold text-slate-500">{albumReports.length} flagged</span>
+                        </div>
+                        <div className="space-y-4">
+                            {albumReports.length === 0 ? (
+                                <div className="rounded-2xl border border-white/5 bg-white/5 p-6 text-center text-sm text-slate-500">Clear queue</div>
+                            ) : (
+                                albumReports.map((album) => (
+                                    <div key={album.id} className="rounded-3xl border border-white/10 bg-slate-950/50 p-5 backdrop-blur-sm">
+                                        <div className="mb-4">
+                                            <div className="flex items-start justify-between gap-2">
+                                                <h4 className="font-bold text-white line-clamp-1">{album.title}</h4>
+                                                <span className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-widest bg-white/5 text-slate-400">
+                                                    {album.release_status}
+                                                </span>
+                                            </div>
+                                            <p className="text-xs text-slate-400 mt-1">{album.artist || 'Unknown'}</p>
+                                        </div>
+                                        <div className="space-y-3">
                                             {album.reports.map((report) => (
-                                                <div key={report.id} className="rounded-2xl border border-white/10 bg-slate-950/40 p-4">
-                                                    <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                                                        <div>
-                                                            <div className="font-semibold text-white">{report.reason}</div>
-                                                            <div className="mt-1 text-sm text-slate-400">{report.reporter || 'Anonymous'} · {formatDate(report.created_at)}</div>
-                                                        </div>
-                                                        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${report.status === 'open' ? 'bg-amber-400/15 text-amber-200 ring-1 ring-amber-400/20' : 'bg-emerald-400/15 text-emerald-200 ring-1 ring-emerald-400/20'}`}>
-                                                            {report.status}
-                                                        </span>
-                                                    </div>
-                                                    {report.details && <div className="mt-3 text-sm leading-6 text-slate-300">{report.details}</div>}
-                                                    <div className="mt-4 flex justify-end">
-                                                        <button type="button" onClick={() => dismissReport(report.id)} className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm font-semibold text-slate-200">Dismiss report</button>
-                                                    </div>
-                                                </div>
+                                                <ReportItem key={report.id} report={report} onAction={handleAction} formatDate={formatDate} />
                                             ))}
                                         </div>
                                     </div>
@@ -184,5 +170,58 @@ export default function Index({ songReports, albumReports, openReportsCount }: P
                 </div>
             </div>
         </AuthenticatedLayout>
+    );
+}
+
+function ReportItem({ report, onAction, formatDate }: { report: QueueReport, onAction: any, formatDate: any }) {
+    const statusColors: Record<string, string> = {
+        'open': 'bg-amber-400/10 text-amber-400 border-amber-400/20',
+        'under_review': 'bg-cyan-400/10 text-cyan-400 border-cyan-400/20',
+        'resolved': 'bg-emerald-400/10 text-emerald-400 border-emerald-400/20',
+        'ignored': 'bg-slate-400/10 text-slate-400 border-slate-400/20',
+    };
+
+    return (
+        <div className="rounded-2xl border border-white/5 bg-white/5 p-4 transition-all hover:bg-white/[0.08]">
+            <div className="flex items-start justify-between gap-3">
+                <div>
+                    <div className="text-sm font-bold text-white">{report.reason}</div>
+                    <div className="mt-0.5 text-[10px] text-slate-500 font-medium">
+                        {report.reporter || 'Anonymous'} · {formatDate(report.created_at)}
+                    </div>
+                </div>
+                <span className={`rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-widest ${statusColors[report.status] || statusColors.open}`}>
+                    {report.status.replace('_', ' ')}
+                </span>
+            </div>
+            {report.details && (
+                <div className="mt-3 text-xs leading-5 text-slate-400 line-clamp-2">
+                    {report.details}
+                </div>
+            )}
+
+            {report.status !== 'resolved' && report.status !== 'ignored' && (
+                <div className="mt-4 flex flex-wrap gap-2 border-t border-white/5 pt-3">
+                    <button
+                        onClick={() => onAction(report.id, 'review')}
+                        className="rounded-lg bg-cyan-400/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-cyan-200 transition hover:bg-cyan-400/20"
+                    >
+                        Review
+                    </button>
+                    <button
+                        onClick={() => onAction(report.id, 'remove')}
+                        className="rounded-lg bg-rose-500/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-rose-200 transition hover:bg-rose-500/20"
+                    >
+                        Remove
+                    </button>
+                    <button
+                        onClick={() => onAction(report.id, 'ignore')}
+                        className="rounded-lg bg-white/5 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-slate-300 transition hover:bg-white/10"
+                    >
+                        Ignore
+                    </button>
+                </div>
+            )}
+        </div>
     );
 }

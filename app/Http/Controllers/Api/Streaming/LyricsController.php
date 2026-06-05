@@ -16,6 +16,22 @@ class LyricsController extends Controller
         $lyric = $song->lyric;
 
         if (! $lyric) {
+            if (! empty($song->lyrics)) {
+                return response()->json([
+                    'song_id' => $song->id,
+                    'format' => 'plain',
+                    'language' => null,
+                    'lines' => collect(preg_split('/\r\n|\r|\n/', (string) $song->lyrics) ?: [])
+                        ->filter(fn (string $line) => trim($line) !== '')
+                        ->values()
+                        ->map(fn (string $line) => [
+                            'time_ms' => 0,
+                            'text' => trim($line),
+                        ])
+                        ->all(),
+                ]);
+            }
+
             return response()->json([
                 'song_id' => $song->id,
                 'format' => 'lrc',
@@ -23,7 +39,16 @@ class LyricsController extends Controller
             ]);
         }
 
-        $lines = $lyric->parsed_json ?: $this->parseLrc((string) $lyric->lrc_content);
+        $lines = $lyric->parsed_json ?: ($lyric->format === 'plain'
+            ? collect(preg_split('/\r\n|\r|\n/', (string) $lyric->lrc_content) ?: [])
+                ->filter(fn (string $line) => trim($line) !== '')
+                ->values()
+                ->map(fn (string $line) => [
+                    'time_ms' => 0,
+                    'text' => trim($line),
+                ])
+                ->all()
+            : $this->parseLrc((string) $lyric->lrc_content));
 
         return response()->json([
             'song_id' => $song->id,

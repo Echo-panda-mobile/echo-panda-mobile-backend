@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\AlbumController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\FavoriteController;
 use App\Http\Controllers\Api\Artist\AnalyticsController;
+use App\Http\Controllers\Api\Artist\ArtistController as ApiArtistController;
 use App\Http\Controllers\Api\Artist\UploadController;
 use App\Http\Controllers\Api\GenreController;
 use App\Http\Controllers\Api\TagController;
@@ -14,13 +15,21 @@ use App\Http\Controllers\Api\Streaming\PlaybackController;
 use App\Http\Controllers\Api\Streaming\StreamTicketController;
 use App\Http\Controllers\Api\ListenHistoryController;
 use App\Http\Controllers\Api\Mobile\MbArtistController;
+use App\Http\Controllers\Api\Mobile\MbArtistDashboardController;
 use App\Http\Controllers\Api\Mobile\MbFavoriteController;
+use App\Http\Controllers\Api\Mobile\MbGenreController;
 use App\Http\Controllers\Api\Mobile\MbPlaybackController;
+use App\Http\Controllers\Api\Mobile\MbTagController;
 use App\Http\Controllers\Api\PlaylistController;
-use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\ProfileController;
+use App\Http\Controllers\Api\RecommendationController;
 use App\Http\Controllers\Api\SongController;
+use App\Http\Controllers\Api\CatalogImageUploadController;
+use App\Http\Controllers\Api\UserController;
+use App\Http\Controllers\Api\UserUploadController;
 use Illuminate\Support\Facades\Route;
+
+use App\Http\Controllers\Api\ShareController;
 
 // Public Authentication Routes
 Route::post('/register', [AuthController::class, 'register'])->name('api.register');
@@ -32,22 +41,28 @@ Route::post('/firebase/session', [AuthController::class, 'firebaseLogin'])
 // Public Routes (no authentication required)
 Route::get('/genres', [GenreController::class, 'index'])->name('api.genres.index');
 Route::get('/tags', [TagController::class, 'index'])->name('api.tags.index');
-Route::get('/products', [ProductController::class, 'index'])->name('api.products.index');
-Route::get('/products/{product}', [ProductController::class, 'show'])->name('api.products.show');
 
 // Public Album and Song Routes (readable by everyone)
 Route::get('/albums', [AlbumController::class, 'index'])->name('api.albums.index');
+Route::get('/albums/new-releases-today', [AlbumController::class, 'newReleasesToday'])->name('api.albums.new-releases-today');
 Route::get('/albums/{album}', [AlbumController::class, 'show'])->name('api.albums.show');
 Route::get('/albums/{albumId}/songs', [SongController::class, 'getByAlbum'])->name('api.albums.songs');
 Route::get('/albums/{album}/cover-url', [AlbumController::class, 'coverUrl'])->name('api.albums.cover-url');
 Route::get('/songs', [SongController::class, 'index'])->name('api.songs.index');
 Route::get('/songs/{song}', [SongController::class, 'show'])->name('api.songs.show');
+Route::get('/recommendations/similar/{song}', [RecommendationController::class, 'similar'])->name('api.recommendations.similar');
+Route::get('/recommendations/cold-start', [RecommendationController::class, 'coldStart'])->name('api.recommendations.cold-start');
 Route::get('/stats/most-played-songs', [ListenHistoryController::class, 'mostPlayedSongs'])->name('api.stats.most-played-songs');
 Route::get('/stats/most-played-albums', [ListenHistoryController::class, 'mostPlayedAlbums'])->name('api.stats.most-played-albums');
 Route::get('/genres', [\App\Http\Controllers\Api\GenreController::class, 'index'])->name('api.genres.index');
 Route::get('/artists', [\App\Http\Controllers\Api\Artist\ArtistController::class, 'index'])->name('api.artists.index');
 Route::get('/artists/popular', [MbArtistController::class, 'popular'])->name('api.artists.popular');
 Route::get('/artists/{artist}/image-url', [\App\Http\Controllers\Api\Artist\ArtistController::class, 'imageUrl'])->name('api.artists.image-url');
+Route::get('/users/{user}/image-url', [UserController::class, 'imageUrl'])->name('api.users.image-url');
+Route::get('/genres/{genre}/image-url', [GenreController::class, 'imageUrl'])->name('api.genres.image-url');
+Route::get('/tags/{tag}/image-url', [TagController::class, 'imageUrl'])->name('api.tags.image-url');
+Route::get('/mb/genres', [MbGenreController::class, 'index'])->name('api.mb.genres.index');
+Route::get('/mb/tags', [MbTagController::class, 'index'])->name('api.mb.tags.index');
 
 // Protected Routes (require authentication)
 Route::middleware('auth:sanctum')->group(function () {
@@ -61,25 +76,41 @@ Route::middleware('auth:sanctum')->group(function () {
             ->name('api.users.by-role');
         Route::post('/admin/artists', [AdminArtistController::class, 'store'])
             ->name('api.admin.artists.store');
+
+        Route::post('/genres/{genre}/image/presign', [CatalogImageUploadController::class, 'presignGenre'])
+            ->name('api.genres.image.presign');
+        Route::post('/genres/{genre}/image', [CatalogImageUploadController::class, 'mediaGenre'])
+            ->name('api.genres.image.store');
+        Route::post('/tags/{tag}/image/presign', [CatalogImageUploadController::class, 'presignTag'])
+            ->name('api.tags.image.presign');
+        Route::post('/tags/{tag}/image', [CatalogImageUploadController::class, 'mediaTag'])
+            ->name('api.tags.image.store');
     });
 
     // Profile Routes
     Route::get('/profile', [ProfileController::class, 'show'])->name('api.profile.show');
     Route::put('/profile', [ProfileController::class, 'update'])->name('api.profile.update');
+    Route::post('/upload/user-image/presign', [UserUploadController::class, 'presign'])
+        ->name('api.upload.user-image.presign');
+    Route::post('/upload/user-image', [UserUploadController::class, 'media'])
+        ->name('api.upload.user-image.store');
     Route::get('/profile/favorite-songs', [ProfileController::class, 'getFavoriteSongs'])->name('api.profile.favorite-songs');
     Route::get('/profile/favorite-albums', [ProfileController::class, 'getFavoriteAlbums'])->name('api.profile.favorite-albums');
+    Route::get('/recommendations', [RecommendationController::class, 'index'])->name('api.recommendations.index');
+    Route::post('/recommendations/events', [RecommendationController::class, 'trackEvent'])->name('api.recommendations.events.track');
+
+    // General Media Upload Routes (Internal logic handles specific role permissions)
+    Route::post('/upload/media/presign', [UploadController::class, 'presignMedia'])
+        ->name('api.upload.media.presign');
+
+    Route::post('/upload/media', [UploadController::class, 'media'])
+        ->name('api.upload.media.store');
+
+    Route::delete('/upload/media', [UploadController::class, 'deleteMedia'])
+        ->name('api.upload.media.delete');
 
     // Artist/Publisher Routes
     Route::middleware('role:artist,publicer,admin')->group(function () {
-        Route::post('/upload/media/presign', [UploadController::class, 'presignMedia'])
-            ->name('api.upload.media.presign');
-
-        Route::post('/upload/media', [UploadController::class, 'media'])
-            ->name('api.upload.media.store');
-
-        Route::delete('/upload/media', [UploadController::class, 'deleteMedia'])
-            ->name('api.upload.media.delete');
-
         // Album Routes (create/update/delete protected)
         Route::post('/albums', [AlbumController::class, 'store'])
             ->name('api.albums.store');
@@ -98,6 +129,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::get('/artist/analytics', [AnalyticsController::class, 'show'])
             ->name('api.artist.analytics.show');
+
+        Route::put('/artist/profile', [ApiArtistController::class, 'updateProfile'])
+            ->name('api.artist.profile.update');
     });
 
     // Allow creating an artist profile for authenticated users who are not artists yet
@@ -121,11 +155,19 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/playback/recent', [MbPlaybackController::class, 'recent'])->name('playback.recent');
         Route::get('/artists/popular', [MbArtistController::class, 'popular'])->name('artists.popular');
         Route::get('/artists/random', [MbArtistController::class, 'random'])->name('artists.random');
+
+        Route::middleware('role:artist,publicer,admin')->group(function () {
+            Route::get('/artist/top-listened-songs', [MbArtistDashboardController::class, 'topListenedSongs'])
+                ->name('artist.top-listened-songs');
+        });
     });
 
     // Listen History Routes
     Route::post('/listen-history', [ListenHistoryController::class, 'track'])->name('api.listen-history.track');
     Route::get('/listen-history', [ListenHistoryController::class, 'myHistory'])->name('api.listen-history.me');
+
+    // Reporting Routes
+    Route::post('/reports', [\App\Http\Controllers\Api\ReportController::class, 'store'])->name('api.reports.store');
 
     // Streaming Playback Routes
     Route::get('/songs/{song}/stream-ticket', [StreamTicketController::class, 'show'])->name('api.streaming.ticket');
@@ -145,15 +187,15 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/playlists/{playlist}/songs/{song}', [PlaylistController::class, 'removeSong'])->name('api.playlists.remove-song');
     Route::get('/playlists/{playlist}/songs/{song}/exists', [PlaylistController::class, 'hasSong'])->name('api.playlists.has-song');
 
-    // Product Routes (protected)
-    Route::middleware('role:admin')->group(function () {
-        Route::post('/products', [ProductController::class, 'store'])
-            ->name('api.products.store');
-        Route::put('/products/{product}', [ProductController::class, 'update'])
-            ->name('api.products.update');
-        Route::delete('/products/{product}', [ProductController::class, 'destroy'])
-            ->name('api.products.destroy');
-    });
+    // Dynamic Recommendations & Interactions
+    Route::get('/recommendations/home', [\App\Http\Controllers\Api\RecommendationController::class, 'home']);
+    Route::post('/interactions/track', [\App\Http\Controllers\Api\InteractionController::class, 'track']);
+
+    // Share Routes
+    Route::post('/shares', [ShareController::class, 'store'])->name('api.shares.store');
+    Route::get('/admin/shares/analytics', [ShareController::class, 'analytics'])
+        ->middleware('role:admin')
+        ->name('api.shares.analytics');
 });
 
 require __DIR__.'/api/mobile-admin.php';

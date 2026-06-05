@@ -7,75 +7,114 @@ use App\Models\Report;
 use Illuminate\Http\Request;
 use App\Models\Album;
 use App\Models\Song;
+use App\Models\Artist;
 use Inertia\Inertia;
 use Inertia\Response;
+use Illuminate\Http\RedirectResponse;
 
 class ReportController extends Controller
 {
     public function index(Request $request): Response
     {
-        $this->authorize('viewAny', \App\Models\Report::class);
+        $this->authorize('viewAny', Report::class);
 
-        $openReports = Report::query()
-            ->where('status', 'open')
+        $reports = Report::query()
             ->with(['reportable', 'user'])
             ->latest()
             ->get();
 
-        $songReports = $openReports
+        $songReports = $reports
             ->filter(fn (Report $report) => $report->reportable_type === Song::class)
             ->groupBy('reportable_id')
-            ->map(function ($reports, $songId) {
-                $song = $reports->first()?->reportable;
-
-                return [
-                    'id' => (int) $songId,
-                    'title' => $song?->title ?? 'Untitled Song',
-                    'artist' => $song?->artist ?: $song?->album?->artist,
-                    'album' => $song?->album?->title,
-                    'is_active' => (bool) ($song?->is_active ?? false),
-                    'play_count' => (int) ($song?->play_count ?? 0),
-                    'reports' => $reports->map(fn (Report $report) => [
-                        'id' => $report->id,
-                        'reason' => $report->reason,
-                        'details' => $report->details,
-                        'status' => $report->status,
-                        'reporter' => $report->user?->name,
-                        'created_at' => $report->created_at,
-                    ])->values(),
-                ];
-            })
+            ->map(fn ($group, $id) => $this->formatReportGroup($group, $id))
             ->values();
 
-        $albumReports = $openReports
+        $albumReports = $reports
             ->filter(fn (Report $report) => $report->reportable_type === Album::class)
             ->groupBy('reportable_id')
-            ->map(function ($reports, $albumId) {
-                $album = $reports->first()?->reportable;
+            ->map(fn ($group, $id) => $this->formatReportGroup($group, $id))
+            ->values();
 
-                return [
-                    'id' => (int) $albumId,
-                    'title' => $album?->title ?? 'Untitled Album',
-                    'artist' => $album?->artist,
-                    'release_status' => $album?->release_status,
-                    'songs_count' => (int) ($album?->songs->count() ?? 0),
-                    'reports' => $reports->map(fn (Report $report) => [
-                        'id' => $report->id,
-                        'reason' => $report->reason,
-                        'details' => $report->details,
-                        'status' => $report->status,
-                        'reporter' => $report->user?->name,
-                        'created_at' => $report->created_at,
-                    ])->values(),
-                ];
-            })
+        $artistReports = $reports
+            ->filter(fn (Report $report) => $report->reportable_type === Artist::class)
+            ->groupBy('reportable_id')
+            ->map(fn ($group, $id) => $this->formatReportGroup($group, $id))
             ->values();
 
         return Inertia::render('Admin/Moderation/Index', [
             'songReports' => $songReports,
             'albumReports' => $albumReports,
-            'openReportsCount' => $openReports->count(),
+            'artistReports' => $artistReports,
+            'openReportsCount' => Report::where('status', 'open')->count(),
         ]);
+    }
+
+    protected function formatReportGroup($reports, $id)
+    {
+        $item = $reports->first()?->reportable;
+        $type = $reports->first()?->reportable_type;
+
+        $data = [
+            'id' => (int) $id,
+            'reports' => $reports->map(fn (Report $report) => [
+                'id' => $report->id,
+                'reason' => $report->reason,
+                'details' => $report->details,
+                'status' => $report->status,
+                'reporter' => $report->user?->name,
+                'created_at' => $report->created_at,
+            ])->values(),
+        ];
+
+        if ($type === Song::class) {
+            $data['title'] = $item?->title ?? 'Deleted Song';
+            $data['artist'] = $item?->artist ?: $item?->album?->artist;
+            $data['is_active'] = (bool) ($item?->is_active ?? false);
+        } elseif ($type === Album::class) {
+            $data['title'] = $item?->title ?? 'Deleted Album';
+            $data['artist'] = $item?->artist;
+            $data['release_status'] = $item?->release_status;
+        } elseif ($type === Artist::class) {
+            $data['name'] = $item?->name ?? 'Deleted Artist';
+            $data['is_active'] = (bool) ($item?->is_active ?? false);
+        }
+
+        return $data;
+    }
+
+    public function action(Request $request, Report $report): RedirectResponse
+    {
+        $this->authorize('update', $report);
+
+        $action = $request->input('action'); // review, remove, ignore
+
+        if ($action === 'review') {
+            $report->update(['status' => 'under_review']);
+            return back()->with('success', 'Report marked as under review');
+        }
+
+        if ($action === 'ignore') {
+            $report->update(['status' => 'ignored']);
+            return back()->with('success', 'Report ignored');
+        }
+
+        if ($action === 'remove') {
+            $item = $report->reportable;
+            if ($item) {
+                if (method_exists($item, 'delete')) {
+                    // For songs/albums/artists, we might want to just deactivate instead of delete
+                    if (isset($item->is_active)) {
+                        $item->update(['is_active' => false]);
+                    } elseif (isset($item->release_status)) {
+                        $item->update(['release_status' => 'hidden']);
+                    }
+                }
+            }
+            $report->update(['status' => 'resolved']);
+            return back()->with('success', 'Content hidden and report resolved');
+        }
+
+        return back()->with('error', 'Invalid action');
     }
 
     public function show(Report $report): Response
@@ -84,11 +123,11 @@ class ReportController extends Controller
         return Inertia::render('Admin/Reports/Show', ['report' => $report]);
     }
 
-    public function destroy(Report $report)
+    public function destroy(Report $report): RedirectResponse
     {
         $this->authorize('delete', $report);
         $report->delete();
 
-        return back()->with('success', 'Report removed');
+        return back()->with('success', 'Report removed from database');
     }
 }

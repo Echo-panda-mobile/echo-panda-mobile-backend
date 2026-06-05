@@ -52,16 +52,32 @@ class MbAdminAlbumController extends Controller
 
     public function approve(Album $album): JsonResponse
     {
-        $album->update(['release_status' => 'published']);
+        $album->update(['is_active' => true]);
 
-        return response()->json(['message' => 'Album approved and published.']);
+        return response()->json(['message' => 'Album approved and made visible.']);
     }
 
     public function hide(Album $album): JsonResponse
     {
-        $album->update(['release_status' => 'rejected']);
+        $album->update(['is_active' => false]);
 
         return response()->json(['message' => 'Album hidden from the platform.']);
+    }
+
+    public function updateStatus(Request $request, Album $album): JsonResponse
+    {
+        $validated = $request->validate([
+            'is_active' => ['required', 'boolean'],
+        ]);
+
+        $album->update(['is_active' => $validated['is_active']]);
+
+        return response()->json([
+            'message' => $validated['is_active']
+                ? 'Album approved and made visible.'
+                : 'Album hidden from the platform.',
+            'is_active' => (bool) $album->is_active,
+        ]);
     }
 
     public function report(Request $request, Album $album): JsonResponse
@@ -110,6 +126,7 @@ class MbAdminAlbumController extends Controller
             'release_date' => $album->release_date,
             'description' => $album->description,
             'release_status' => $album->release_status,
+            'is_active' => (bool) ($album->is_active ?? true),
             'cover_key' => $album->cover_key,
             'cover_url' => $coverUrl,
             'songs_count' => $album->songs_count ?? $album->songs()->count(),

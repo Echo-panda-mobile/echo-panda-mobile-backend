@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Playlist;
 use App\Models\Song;
+use App\Services\UserPreferenceService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -12,53 +13,13 @@ use Illuminate\Support\Str;
 
 class PlaylistController extends Controller
 {
-    protected function resolveCoverUrl(?string $coverSource): ?string
+    protected function authorizeOwner(Request $request, Playlist $playlist): ?JsonResponse
     {
-        if (! $coverSource) {
-            return null;
+        if ((int) $playlist->user_id !== (int) $request->user()->id) {
+            return response()->json(['message' => 'Forbidden'], 403);
         }
 
-        if (preg_match('#^https?://#i', $coverSource)) {
-            return $coverSource;
-        }
-
-        /** @var mixed $disk */
-        $disk = Storage::disk('s3');
-
-        if (method_exists($disk, 'temporaryUrl')) {
-            return $disk->temporaryUrl(ltrim($coverSource, '/'), now()->addMinutes(60));
-        }
-
-        return $disk->url(ltrim($coverSource, '/'));
-    }
-
-    protected function keyFromUrlOrKey(?string $value): ?string
-    {
-        if (! $value) {
-            return null;
-        }
-
-        if (! preg_match('#^https?://#i', $value)) {
-            return ltrim($value, '/');
-        }
-
-        $path = parse_url($value, PHP_URL_PATH);
-
-        return $path ? ltrim(rawurldecode($path), '/') : null;
-    }
-
-    protected function transformPlaylist(Playlist $playlist): array
-    {
-        return [
-            'id' => $playlist->id,
-            'name' => $playlist->name,
-            'description' => $playlist->description,
-            'cover_key' => $playlist->cover_key,
-            'image_url' => $this->resolveCoverUrl($playlist->cover_key),
-            'songs_count' => $playlist->songs_count ?? null,
-            'created_at' => $playlist->created_at,
-            'updated_at' => $playlist->updated_at,
-        ];
+        return null;
     }
 
     /**
@@ -71,7 +32,7 @@ class PlaylistController extends Controller
             ->withCount('songs')
             ->latest()
             ->get()
-            ->map(fn (Playlist $playlist) => $this->transformPlaylist($playlist));
+            ->map(fn (Playlist $playlist) => $playlist->toApiArray());
 
         return response()->json([
             'data' => $playlists,
@@ -90,20 +51,31 @@ class PlaylistController extends Controller
             'cover_key' => 'nullable|string|max:512',
         ]);
 
-        $coverKey = $validated['cover_key'] ?? $this->keyFromUrlOrKey($validated['image_url'] ?? null);
-
-        $playlist = Playlist::create([
+        $payload = [
             'user_id' => $request->user()->id,
             'name' => $validated['name'],
-            'description' => $validated['description'] ?? null,
-            'cover_key' => $coverKey,
+        ];
+
+        if (Playlist::hasColumn('description')) {
+            $payload['description'] = $validated['description'] ?? null;
+        }
+
+        $coverPayload = array_filter([
+            'cover_key' => $validated['cover_key'] ?? null,
+            'image_url' => $validated['image_url'] ?? null,
         ]);
 
+        if ($coverPayload !== []) {
+            (new Playlist)->applyCoverAttributes($coverPayload);
+            $payload = array_merge($payload, $coverPayload);
+        }
+
+        $playlist = Playlist::create($payload);
         $playlist->loadCount('songs');
 
         return response()->json([
             'message' => 'Playlist created successfully',
-            'data' => $this->transformPlaylist($playlist),
+            'data' => $playlist->toApiArray(),
         ], 201);
     }
 
@@ -112,8 +84,8 @@ class PlaylistController extends Controller
      */
     public function update(Request $request, Playlist $playlist): JsonResponse
     {
-        if ((int) $playlist->user_id !== (int) $request->user()->id) {
-            return response()->json(['message' => 'Forbidden'], 403);
+        if ($response = $this->authorizeOwner($request, $playlist)) {
+            return $response;
         }
 
         $validated = $request->validate([
@@ -129,22 +101,28 @@ class PlaylistController extends Controller
             $payload['name'] = $validated['name'];
         }
 
-        if (array_key_exists('description', $validated)) {
+        if (Playlist::hasColumn('description') && array_key_exists('description', $validated)) {
             $payload['description'] = $validated['description'];
         }
 
-        if (array_key_exists('cover_key', $validated)) {
-            $payload['cover_key'] = $validated['cover_key'];
-        } elseif (array_key_exists('image_url', $validated)) {
-            $payload['cover_key'] = $this->keyFromUrlOrKey($validated['image_url']);
+        if (array_key_exists('cover_key', $validated) || array_key_exists('image_url', $validated)) {
+            $coverPayload = [
+                'cover_key' => $validated['cover_key'] ?? null,
+                'image_url' => $validated['image_url'] ?? null,
+            ];
+            (new Playlist)->applyCoverAttributes($coverPayload);
+            $payload = array_merge($payload, $coverPayload);
         }
 
-        $playlist->update($payload);
+        if ($payload !== []) {
+            $playlist->update($payload);
+        }
+
         $playlist->loadCount('songs');
 
         return response()->json([
             'message' => 'Playlist updated successfully',
-            'data' => $this->transformPlaylist($playlist->fresh()),
+            'data' => $playlist->fresh()->toApiArray(),
         ]);
     }
 
@@ -153,8 +131,8 @@ class PlaylistController extends Controller
      */
     public function uploadCover(Request $request, Playlist $playlist): JsonResponse
     {
-        if ((int) $playlist->user_id !== (int) $request->user()->id) {
-            return response()->json(['message' => 'Forbidden'], 403);
+        if ($response = $this->authorizeOwner($request, $playlist)) {
+            return $response;
         }
 
         $validated = $request->validate([
@@ -168,12 +146,13 @@ class PlaylistController extends Controller
 
         Storage::disk('s3')->put($key, fopen($file->getRealPath(), 'r'));
 
-        $playlist->update(['cover_key' => $key]);
+        $playlist->assignCoverKey($key);
+        $playlist->save();
         $playlist->loadCount('songs');
 
         return response()->json([
             'message' => 'Playlist cover updated successfully',
-            'data' => $this->transformPlaylist($playlist->fresh()),
+            'data' => $playlist->fresh()->toApiArray(),
         ]);
     }
 
@@ -182,11 +161,11 @@ class PlaylistController extends Controller
      */
     public function destroy(Request $request, Playlist $playlist): JsonResponse
     {
-        if ((int) $playlist->user_id !== (int) $request->user()->id) {
-            return response()->json(['message' => 'Forbidden'], 403);
+        if ($response = $this->authorizeOwner($request, $playlist)) {
+            return $response;
         }
 
-        $playlist->delete();
+        Playlist::destroy($playlist->getKey());
 
         return response()->json([
             'message' => 'Playlist deleted successfully',
@@ -198,8 +177,8 @@ class PlaylistController extends Controller
      */
     public function songs(Request $request, Playlist $playlist): JsonResponse
     {
-        if ((int) $playlist->user_id !== (int) $request->user()->id) {
-            return response()->json(['message' => 'Forbidden'], 403);
+        if ($response = $this->authorizeOwner($request, $playlist)) {
+            return $response;
         }
 
         $songs = $playlist->songs()
@@ -215,10 +194,10 @@ class PlaylistController extends Controller
     /**
      * Add song to playlist.
      */
-    public function addSong(Request $request, Playlist $playlist): JsonResponse
+    public function addSong(Request $request, Playlist $playlist, UserPreferenceService $preferenceService): JsonResponse
     {
-        if ((int) $playlist->user_id !== (int) $request->user()->id) {
-            return response()->json(['message' => 'Forbidden'], 403);
+        if ($response = $this->authorizeOwner($request, $playlist)) {
+            return $response;
         }
 
         $validated = $request->validate([
@@ -226,6 +205,7 @@ class PlaylistController extends Controller
         ]);
 
         $songId = (int) $validated['song_id'];
+        $song = Song::query()->with(['genre', 'artistModel', 'tag'])->findOrFail($songId);
 
         if ($playlist->songs()->where('song_id', $songId)->exists()) {
             return response()->json([
@@ -234,6 +214,7 @@ class PlaylistController extends Controller
         }
 
         $playlist->songs()->attach($songId, ['added_at' => now()]);
+        $preferenceService->applyPlaylistAdd((int) $request->user()->id, $song);
 
         return response()->json([
             'message' => 'Song added to playlist',
@@ -245,8 +226,8 @@ class PlaylistController extends Controller
      */
     public function removeSong(Request $request, Playlist $playlist, Song $song): JsonResponse
     {
-        if ((int) $playlist->user_id !== (int) $request->user()->id) {
-            return response()->json(['message' => 'Forbidden'], 403);
+        if ($response = $this->authorizeOwner($request, $playlist)) {
+            return $response;
         }
 
         $playlist->songs()->detach($song->id);
@@ -261,8 +242,8 @@ class PlaylistController extends Controller
      */
     public function hasSong(Request $request, Playlist $playlist, Song $song): JsonResponse
     {
-        if ((int) $playlist->user_id !== (int) $request->user()->id) {
-            return response()->json(['message' => 'Forbidden'], 403);
+        if ($response = $this->authorizeOwner($request, $playlist)) {
+            return $response;
         }
 
         $exists = $playlist->songs()->where('song_id', $song->id)->exists();

@@ -6,16 +6,34 @@ use App\Http\Controllers\Controller;
 use App\Models\Artist;
 use App\Models\User;
 use App\Services\FirebaseUserProvisioner;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class ArtistController extends Controller
 {
+    protected function uploadImage(UploadedFile $file, string $folder, string $artistName): string
+    {
+        $ext = $file->getClientOriginalExtension();
+        $uuid = (string) Str::uuid();
+        $artistSlug = Str::slug($artistName ?: 'artist');
+        $key = trim($folder, '/')."/{$artistSlug}/{$uuid}.{$ext}";
+
+        // Use the public disk for artist images so they are easily accessible
+        // Fallback to S3 if public disk is not preferred or if we're in production
+        $disk = config('filesystems.default') === 's3' ? 's3' : 'public';
+
+        Storage::disk($disk)->put($key, fopen($file->getRealPath(), 'r'));
+
+        return $key;
+    }
+
     public function index(Request $request): Response
     {
         $this->authorize('viewAny', \App\Models\Artist::class);
@@ -23,6 +41,7 @@ class ArtistController extends Controller
 
         return Inertia::render('Admin/Artists/Index', [
             'artists' => $artists,
+            'users' => [], // Fallback for old builds
         ]);
     }
 
@@ -31,7 +50,7 @@ class ArtistController extends Controller
         $this->authorize('create', \App\Models\Artist::class);
 
         return Inertia::render('Admin/Artists/Create', [
-            'users' => User::orderBy('name')->get(['id', 'name', 'email', 'role']),
+            'users' => [], // Fallback for old builds
         ]);
     }
 
@@ -39,88 +58,93 @@ class ArtistController extends Controller
     {
         $this->authorize('create', \App\Models\Artist::class);
 
+        $request->merge([
+            'facebook_url' => $request->filled('facebook_url') ? $request->input('facebook_url') : null,
+            'instagram_url' => $request->filled('instagram_url') ? $request->input('instagram_url') : null,
+            'tiktok_url' => $request->filled('tiktok_url') ? $request->input('tiktok_url') : null,
+            'youtube_url' => $request->filled('youtube_url') ? $request->input('youtube_url') : null,
+        ]);
+
         $validated = $request->validate([
-            'user_id' => ['nullable', 'exists:users,id', 'unique:artists,user_id'],
-            'email' => ['nullable', 'email', 'max:255', 'unique:users,email'],
-            'user_role' => ['nullable', Rule::in([\App\Models\User::ROLE_USER, \App\Models\User::ROLE_ARTIST, \App\Models\User::ROLE_PUBLICER, \App\Models\User::ROLE_ADMIN])],
+            'email' => ['required', 'email', 'max:255', 'unique:users,email'],
             'name' => ['required', 'string', 'max:200'],
-            'slug' => ['nullable', 'string', 'max:220', 'unique:artists,slug'],
             'bio' => ['nullable', 'string', 'max:5000'],
+            'profile_image' => ['nullable', 'image', 'max:5120'],
+            'cover_image' => ['nullable', 'image', 'max:5120'],
+            'facebook_url' => ['nullable', 'url', 'max:255'],
+            'instagram_url' => ['nullable', 'url', 'max:255'],
+            'tiktok_url' => ['nullable', 'url', 'max:255'],
+            'youtube_url' => ['nullable', 'url', 'max:255'],
             'is_active' => ['nullable', 'boolean'],
-            'verification_status' => ['required', Rule::in(['pending', 'approved', 'rejected'])],
-            'verification_reason' => ['nullable', 'string', 'max:5000'],
         ]);
 
         $firebaseProvisioner = app(FirebaseUserProvisioner::class);
         $createdUser = null;
-        $shouldSendInvite = false;
 
         try {
-            $artist = DB::transaction(function () use ($request, $validated, $firebaseProvisioner, &$createdUser, &$shouldSendInvite) {
-                $user = null;
+            $artist = DB::transaction(function () use ($request, $validated, $firebaseProvisioner, &$createdUser) {
+                $userData = [
+                    'name' => $validated['name'],
+                    'email' => $validated['email'],
+                    'role' => User::ROLE_ARTIST,
+                ];
 
-                if (! empty($validated['user_id'])) {
-                    $user = User::query()->findOrFail($validated['user_id']);
-                } elseif (! empty($validated['email'])) {
-                    $userData = [
-                        'name' => $validated['name'],
-                        'email' => $validated['email'],
-                        'role' => $validated['user_role'] ?? User::ROLE_ARTIST,
-                    ];
-
-                    if (Schema::hasColumn('users', 'is_banned')) {
-                        $userData['is_banned'] = false;
-                    }
-
-                    $user = User::create($userData);
-                    $createdUser = $user;
-                    $shouldSendInvite = true;
+                if (Schema::hasColumn('users', 'is_banned')) {
+                    $userData['is_banned'] = false;
                 }
 
-                if ($user) {
-                    if (! $user->firebase_uid) {
-                        $shouldSendInvite = true;
-                    }
+                $user = User::create($userData);
+                $createdUser = $user;
 
-                    $provisionResult = $firebaseProvisioner->provision($user);
-
-                    if (($provisionResult['firebase_uid'] ?? null) && $user->firebase_uid !== $provisionResult['firebase_uid']) {
-                        $user->forceFill(['firebase_uid' => $provisionResult['firebase_uid']])->save();
-                    }
+                $provisionResult = $firebaseProvisioner->provision($user);
+                if (($provisionResult['firebase_uid'] ?? null)) {
+                    $user->forceFill(['firebase_uid' => $provisionResult['firebase_uid']])->save();
                 }
 
-                $baseSlug = Str::slug($validated['slug'] ?? $validated['name']);
+                $baseSlug = Str::slug($validated['name']);
                 $slug = $baseSlug;
                 $counter = 2;
-
                 while (Artist::where('slug', $slug)->exists()) {
                     $slug = $baseSlug.'-'.$counter++;
                 }
 
+                $profileKey = null;
+                if ($request->hasFile('profile_image')) {
+                    $profileKey = $this->uploadImage($request->file('profile_image'), 'images/artist-images', $validated['name']);
+                }
+
+                $coverKey = null;
+                if ($request->hasFile('cover_image')) {
+                    $coverKey = $this->uploadImage($request->file('cover_image'), 'images/artist-images', $validated['name']);
+                }
+
                 return Artist::create([
-                    'user_id' => $user?->id,
+                    'user_id' => $user->id,
                     'name' => $validated['name'],
                     'slug' => $slug,
                     'bio' => $validated['bio'] ?? null,
+                    'image_url' => $profileKey,
+                    'cover_image_url' => $coverKey,
+                    'facebook_url' => $validated['facebook_url'] ?? null,
+                    'instagram_url' => $validated['instagram_url'] ?? null,
+                    'tiktok_url' => $validated['tiktok_url'] ?? null,
+                    'youtube_url' => $validated['youtube_url'] ?? null,
                     'is_active' => $request->boolean('is_active', true),
-                    'verification_status' => $validated['verification_status'],
-                    'verification_reason' => $validated['verification_reason'] ?? null,
-                    'verified_at' => $validated['verification_status'] === 'approved' ? now() : null,
+                    'verification_status' => 'approved',
+                    'verified_at' => now(),
                 ]);
             });
         } catch (\Throwable $throwable) {
             if ($createdUser && $createdUser->firebase_uid) {
                 $firebaseProvisioner->deleteByUid($createdUser->firebase_uid);
             }
-
             if ($createdUser) {
                 $createdUser->delete();
             }
-
             throw $throwable;
         }
 
-        if ($shouldSendInvite && $artist->user) {
+        if ($artist->user) {
             $firebaseProvisioner->sendInvite($artist->user->fresh());
         }
 
@@ -130,9 +154,16 @@ class ArtistController extends Controller
     public function show(Artist $artist): Response
     {
         $this->authorize('view', $artist);
-        $artist->load(['songs' => fn ($query) => $query->orderByDesc('play_count')->limit(12), 'albums', 'user.followers']);
+
+        $artist->load([
+            'songs' => fn ($query) => $query->orderByDesc('play_count')->limit(12),
+            'songs.album',
+            'albums',
+            'user'
+        ]);
+
         $artist->loadCount(['songs', 'albums']);
-        $artist->setAttribute('followers_count', $artist->user?->followers()->count() ?? 0);
+        $artist->loadSum('songs', 'play_count');
 
         return Inertia::render('Admin/Artists/Show', [
             'artist' => $artist,
@@ -151,13 +182,34 @@ class ArtistController extends Controller
     {
         $this->authorize('update', $artist);
 
+        $request->merge([
+            'facebook_url' => $request->filled('facebook_url') ? $request->input('facebook_url') : null,
+            'instagram_url' => $request->filled('instagram_url') ? $request->input('instagram_url') : null,
+            'tiktok_url' => $request->filled('tiktok_url') ? $request->input('tiktok_url') : null,
+            'youtube_url' => $request->filled('youtube_url') ? $request->input('youtube_url') : null,
+        ]);
+
         $validated = $request->validate([
             'name' => ['sometimes', 'required', 'string', 'max:255'],
             'bio' => ['sometimes', 'nullable', 'string', 'max:5000'],
+            'profile_image' => ['nullable', 'image', 'max:5120'],
+            'cover_image' => ['nullable', 'image', 'max:5120'],
+            'facebook_url' => ['nullable', 'url', 'max:255'],
+            'instagram_url' => ['nullable', 'url', 'max:255'],
+            'tiktok_url' => ['nullable', 'url', 'max:255'],
+            'youtube_url' => ['nullable', 'url', 'max:255'],
             'is_active' => ['sometimes', 'boolean'],
             'verification_status' => ['sometimes', 'required', Rule::in(['pending', 'approved', 'rejected'])],
             'verification_reason' => ['sometimes', 'nullable', 'string', 'max:5000'],
         ]);
+
+        if ($request->hasFile('profile_image')) {
+            $validated['image_url'] = $this->uploadImage($request->file('profile_image'), 'images/artist-images', $artist->name);
+        }
+
+        if ($request->hasFile('cover_image')) {
+            $validated['cover_image_url'] = $this->uploadImage($request->file('cover_image'), 'images/artist-images', $artist->name);
+        }
 
         if (array_key_exists('verification_status', $validated)) {
             $validated['verified_at'] = $validated['verification_status'] === 'approved' ? now() : null;

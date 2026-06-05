@@ -8,6 +8,8 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Filesystem\FilesystemAdapter;
+use Illuminate\Support\Facades\Storage;
 
 class User extends Authenticatable
 {
@@ -30,6 +32,7 @@ class User extends Authenticatable
         'firebase_uid',
         'password',
         'role',
+        'image_url',
         'is_banned',
     ];
 
@@ -55,6 +58,66 @@ class User extends Authenticatable
             'password' => 'hashed',
             'is_banned' => 'boolean',
         ];
+    }
+
+    public function storedImageKey(): ?string
+    {
+        $value = $this->attributes['image_url'] ?? null;
+
+        if (! $value) {
+            return null;
+        }
+
+        if (! preg_match('#^https?://#i', $value)) {
+            return ltrim($value, '/');
+        }
+
+        $path = parse_url($value, PHP_URL_PATH);
+
+        return $path ? ltrim(rawurldecode($path), '/') : null;
+    }
+
+    public function deleteStoredImage(): void
+    {
+        $key = $this->storedImageKey();
+
+        if (! $key || ! str_starts_with($key, 'images/user-images/')) {
+            return;
+        }
+
+        Storage::disk('s3')->delete($key);
+    }
+
+    /**
+     * Get the profile image URL with multi-disk support.
+     */
+    public function getImageUrlAttribute(?string $value): ?string
+    {
+        if (! $value) {
+            return null;
+        }
+
+        if (filter_var($value, FILTER_VALIDATE_URL)) {
+            return $value;
+        }
+
+        /** @var FilesystemAdapter $publicDisk */
+        $publicDisk = Storage::disk('public');
+        if ($publicDisk->exists($value)) {
+            return $publicDisk->url($value);
+        }
+
+        try {
+            /** @var FilesystemAdapter $s3Disk */
+            $s3Disk = Storage::disk('s3');
+
+            return $s3Disk->temporaryUrl($value, now()->addMinutes(60));
+        } catch (\Exception $e) {
+            /** @var FilesystemAdapter $s3Disk */
+            $s3Disk = Storage::disk('s3');
+
+            return $s3Disk->url($value);
+        }
     }
 
     public function isAdmin(): bool
