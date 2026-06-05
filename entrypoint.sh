@@ -16,10 +16,18 @@ new PDO(
 done
 echo "✅ Database ready"
 
+echo "📁 Creating storage directories..."
+mkdir -p /var/www/html/storage/framework/cache/data
+mkdir -p /var/www/html/storage/framework/sessions
+mkdir -p /var/www/html/storage/framework/views
+chown -R www-data:www-data /var/www/html/storage
+chmod -R 775 /var/www/html/storage
+
 echo "🗄️  Running migrations..."
 php artisan migrate --force
 
 echo "⚙️  Caching config, routes, views..."
+php artisan view:cache
 php artisan config:cache
 php artisan route:cache
 

@@ -42,12 +42,11 @@ COPY . .
 RUN composer dump-autoload --optimize --no-dev
 
 # Build frontend assets inside the image
-# This way npm never runs at deploy time
 RUN npm ci && npm run build && rm -rf node_modules
 
-# Fix permissions baked into the image
-RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache \
-    && chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
+# Fix permissions — only on specific dirs, not entire /var/www/html
+RUN chown -R www-data:www-data storage bootstrap/cache \
+    && chmod -R 775 storage bootstrap/cache
 
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh

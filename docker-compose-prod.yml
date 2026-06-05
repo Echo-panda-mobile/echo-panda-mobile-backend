@@ -26,8 +26,8 @@ services:
     container_name: laravel11-app
     restart: unless-stopped
     env_file: .env
-    # NO bind mount — the image is fully self-contained
-    # firebase JSON is copied into the image by Dockerfile (COPY . .)
+    volumes:
+      - public_data:/var/www/html/public
     depends_on:
       postgres:
         condition: service_healthy
@@ -49,11 +49,9 @@ services:
       - "443:443"
     volumes:
       - ./nginx/default-prod.conf:/etc/nginx/conf.d/default.conf:ro
+      - public_data:/var/www/html/public:ro
       - ./certbot/conf:/etc/letsencrypt:ro
       - ./certbot/www:/var/www/certbot
-      # Nginx needs access to public/ to serve static files directly
-      # We mount only the public folder from host (it's not sensitive)
-      - ./public:/var/www/html/public:ro
     depends_on:
       app:
         condition: service_healthy
@@ -68,6 +66,7 @@ services:
 
 volumes:
   postgres_data:
+  public_data:
 
 networks:
   ets_network:
