@@ -3,88 +3,102 @@
 namespace App\Services;
 
 use App\Models\Song;
-use App\Models\Genre;
-use App\Models\Tag;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Collection;
 
 class PlaylistGenerator
 {
     /**
      * Generate a list of ranked songs based on criteria.
      */
-    public function generate(array $criteria, User $user, int $limit = 30)
+    public function generate(array $criteria, User $user, int $limit = 30): Collection
     {
-        $genreName = $criteria['genre'] ?? null;
-        $tagsNames = $criteria['tags'] ?? [];
+        $genreNames = (array) ($criteria['genres'] ?? ($criteria['genre'] ?? []));
+        $tagNames = (array) ($criteria['tags'] ?? []);
         $mood = $criteria['mood'] ?? null;
-        $similarArtist = $criteria['similar_artist'] ?? null;
-        $language = $criteria['language'] ?? null;
+        $artistName = $criteria['artist'] ?? ($criteria['similar_artist'] ?? null);
+        $excludeIds = $criteria['exclude_ids'] ?? [];
 
-        // Base query with relationships
+        // Base query
         $query = Song::query()
-            ->with(['genre', 'artistModel'])
+            ->with(['genre', 'artists'])
             ->where('is_active', true);
 
-        // Optimization: Filter broad candidates first if any specific major filter exists
-        if ($genreName) {
-            $query->whereHas('genre', function($q) use ($genreName) {
-                $q->where('name', 'ILIKE', "%{$genreName}%");
-            });
+        if (!empty($excludeIds)) {
+            $query->whereNotIn('id', $excludeIds);
         }
 
-        $songs = $query->get();
+        // Fetch candidates (limit to 500 for performance before ranking)
+        $songs = $query->limit(500)->get();
 
-        // Map and Score
-        $rankedSongs = $songs->map(function ($song) use ($genreName, $tagsNames, $mood, $similarArtist, $user) {
+        // Calculate Scores
+        $rankedSongs = $songs->map(function ($song) use ($genreNames, $tagNames, $mood, $artistName, $user) {
             $score = 0;
 
             // 1. Genre Match (Weight: 30)
-            if ($genreName && $song->genre && stripos($song->genre->name, $genreName) !== false) {
-                $score += 30;
-            }
-
-            // 2. Tag/Mood Match (Weight: 30)
-            // Assuming mood is treated as a tag in the system
-            $targetTags = array_merge($tagsNames, $mood ? [$mood] : []);
-            $songTags = $song->mood; // Assuming mood field in song model holds string or comma separated tags
-
-            $tagMatchCount = 0;
-            foreach ($targetTags as $tag) {
-                if (stripos($songTags, $tag) !== false) {
-                    $tagMatchCount++;
+            if (!empty($genreNames)) {
+                foreach ($genreNames as $g) {
+                    if ($song->genre && stripos($song->genre->name, $g) !== false) {
+                        $score += 30;
+                        break;
+                    }
                 }
             }
-            if (count($targetTags) > 0) {
-                $score += ($tagMatchCount / count($targetTags)) * 30;
+
+            // 2. Tag Match (Weight: 25)
+            $targetTags = array_merge($tagNames, $mood ? [$mood] : []);
+            if (!empty($targetTags)) {
+                $songTags = $song->mood ?? ""; // Fallback if tags table not used directly
+                $matchCount = 0;
+                foreach ($targetTags as $tag) {
+                    if (stripos($songTags, $tag) !== false) $matchCount++;
+                }
+                $score += (count($targetTags) > 0) ? ($matchCount / count($targetTags)) * 25 : 0;
             }
 
-            // 3. Artist Match (Weight: 20)
-            if ($similarArtist && stripos($song->artist, $similarArtist) !== false) {
-                $score += 20;
+            // 3. Artist Match (Weight: 15)
+            if ($artistName) {
+                $artistMatch = false;
+                if (stripos($song->artist, $artistName) !== false) $artistMatch = true;
+                foreach ($song->artists as $a) {
+                    if (stripos($a->name, $artistName) !== false) $artistMatch = true;
+                }
+                if ($artistMatch) $score += 15;
             }
 
-            // 4. User History/Preference Match (Weight: 10)
-            // Simplified: If user has favorited this song or songs by same artist
-            $isFavorite = DB::table('favorites')
+            // 4. User History Match (Weight: 15)
+            // If user liked it or played it many times
+            $isLiked = DB::table('favorites')
                 ->where('user_id', $user->id)
                 ->where('favoritable_id', $song->id)
                 ->where('favoritable_type', Song::class)
                 ->exists();
-            if ($isFavorite) $score += 10;
+            if ($isLiked) $score += 10;
 
-            // 5. Trending Score (Weight: 10)
-            // Map play_count to a score of 0-10
-            $trendingScore = min(10, ($song->play_count / 1000));
-            $score += $trendingScore;
+            $playHistory = DB::table('user_listen_history')
+                ->where('user_id', $user->id)
+                ->where('song_id', $song->id)
+                ->first();
+            if ($playHistory) $score += min(5, $playHistory->play_count);
 
-            $song->ai_score = $score;
+            // 5. Popularity Score (Weight: 10)
+            // Normalize play_count (max 10 points)
+            $score += min(10, ($song->play_count / 5000) * 10);
+
+            // 6. Trending Score (Weight: 5)
+            // Recent interactions in last 24h
+            $recentPlays = DB::table('user_interactions')
+                ->where('song_id', $song->id)
+                ->where('action', 'play')
+                ->where('created_at', '>=', now()->subDay())
+                ->count();
+            $score += min(5, ($recentPlays / 100) * 5);
+
+            $song->recommendation_score = $score;
             return $song;
         });
 
-        // Filter out zero scores if we have enough results
-        $filtered = $rankedSongs->sortByDesc('ai_score')->take($limit);
-
-        return $filtered->values();
+        return $rankedSongs->sortByDesc('recommendation_score')->take($limit)->values();
     }
 }

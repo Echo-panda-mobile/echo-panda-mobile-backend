@@ -42,7 +42,7 @@ class SongController extends Controller
             'bpm' => $song->bpm,
             'is_explicit' => (bool) $song->is_explicit,
             'featured_artists' => $song->featured_artists,
-            'audio_url' => $song->original_key ?: $song->variant_key_320 ?: $song->variant_key_128,
+            'audio_url' => $song->audio_url,
             'original_key' => $song->original_key,
             'variant_key_320' => $song->variant_key_320,
             'variant_key_128' => $song->variant_key_128,

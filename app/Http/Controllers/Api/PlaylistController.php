@@ -7,9 +7,49 @@ use App\Models\Playlist;
 use App\Models\Song;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class PlaylistController extends Controller
 {
+    protected function resolveImageUrl(?string $imageSource): ?string
+    {
+        if (! $imageSource) {
+            return null;
+        }
+
+        if (preg_match('#^https?://#i', $imageSource)) {
+            // If it's already a full URL (like from S3 public url),
+            // but we are getting 403, we should try to treat it as a key if it's our bucket
+            if (str_contains($imageSource, 'amazonaws.com')) {
+                $path = parse_url($imageSource, PHP_URL_PATH);
+                $imageSource = ltrim($path, '/');
+            } else {
+                return $imageSource;
+            }
+        }
+
+        $disk = Storage::disk('s3');
+
+        try {
+            return $disk->temporaryUrl(ltrim($imageSource, '/'), now()->addMinutes(60));
+        } catch (\Exception $e) {
+            return $disk->url($imageSource);
+        }
+    }
+
+    protected function transformPlaylist(Playlist $playlist): array
+    {
+        return [
+            'id' => $playlist->id,
+            'name' => $playlist->name,
+            'description' => $playlist->description,
+            'image_url' => $this->resolveImageUrl($playlist->image_url),
+            'songs_count' => $playlist->songs_count ?? $playlist->songs()->count(),
+            'created_at' => $playlist->created_at,
+            'updated_at' => $playlist->updated_at,
+        ];
+    }
+
     /**
      * List current user's playlists.
      */
@@ -19,7 +59,8 @@ class PlaylistController extends Controller
             ->where('user_id', $request->user()->id)
             ->withCount('songs')
             ->latest()
-            ->get();
+            ->get()
+            ->map(fn($p) => $this->transformPlaylist($p));
 
         return response()->json([
             'data' => $playlists,
@@ -33,17 +74,44 @@ class PlaylistController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
+            'description' => 'nullable|string|max:1000',
+            'image_url' => 'nullable|string|max:2048',
         ]);
 
         $playlist = Playlist::create([
             'user_id' => $request->user()->id,
             'name' => $validated['name'],
+            'description' => $validated['description'] ?? null,
+            'image_url' => $validated['image_url'] ?? null,
         ]);
 
         return response()->json([
             'message' => 'Playlist created successfully',
-            'data' => $playlist,
+            'data' => $this->transformPlaylist($playlist),
         ], 201);
+    }
+
+    /**
+     * Update a playlist.
+     */
+    public function update(Request $request, Playlist $playlist): JsonResponse
+    {
+        if ((int) $playlist->user_id !== (int) $request->user()->id) {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
+        $validated = $request->validate([
+            'name' => 'sometimes|required|string|max:255',
+            'description' => 'nullable|string|max:1000',
+            'image_url' => 'nullable|string|max:2048',
+        ]);
+
+        $playlist->update($validated);
+
+        return response()->json([
+            'message' => 'Playlist updated successfully',
+            'data' => $this->transformPlaylist($playlist),
+        ]);
     }
 
     /**

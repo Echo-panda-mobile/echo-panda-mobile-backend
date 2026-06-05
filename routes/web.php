@@ -240,3 +240,6 @@ Route::middleware('auth')->group(function () {
 });
 
 require __DIR__.'/auth.php';
+
+use App\Http\Controllers\Public\ShareLandingController;
+Route::get('/share/{type}/{id}', [ShareLandingController::class, 'show'])->name('public.share');

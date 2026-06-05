@@ -8,10 +8,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class GeneratedPlaylist extends Model
 {
-    protected $fillable = ['user_id', 'title', 'prompt', 'extracted_criteria', 'cover_url'];
+    protected $fillable = ['user_id', 'title', 'prompt', 'extracted_criteria', 'cover_url', 'type'];
 
     protected $casts = [
-        'extracted_criteria' => 'array',
+        'extracted_criteria' => 'json',
     ];
 
     public function user(): BelongsTo
@@ -22,7 +22,7 @@ class GeneratedPlaylist extends Model
     public function songs(): BelongsToMany
     {
         return $this->belongsToMany(Song::class, 'generated_playlist_songs', 'playlist_id', 'song_id')
-            ->withPivot('position')
-            ->orderBy('pivot_position');
+                    ->withPivot('position')
+                    ->withTimestamps();
     }
 }

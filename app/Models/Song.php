@@ -20,7 +20,7 @@ class Song extends Model
      *
      * @var array
      */
-    protected $appends = ['cover_url'];
+    protected $appends = ['cover_url', 'audio_url'];
 
     /**
      * The attributes that are mass assignable.
@@ -79,6 +79,33 @@ class Song extends Model
     public function getCoverUrlAttribute()
     {
         $path = $this->attributes['cover_key'] ?? null;
+        if (!$path) return null;
+
+        if (filter_var($path, FILTER_VALIDATE_URL)) {
+            return $path;
+        }
+
+        if (\Illuminate\Support\Facades\Storage::disk('public')->exists($path)) {
+            return \Illuminate\Support\Facades\Storage::disk('public')->url($path);
+        }
+
+        try {
+            return \Illuminate\Support\Facades\Storage::disk('s3')->temporaryUrl($path, now()->addMinutes(60));
+        } catch (\Exception $e) {
+            return \Illuminate\Support\Facades\Storage::disk('s3')->url($path);
+        }
+    }
+
+    /**
+     * Get the audio source URL with multi-disk support.
+     */
+    public function getAudioUrlAttribute()
+    {
+        $path = $this->attributes['original_key']
+            ?? $this->attributes['variant_key_320']
+            ?? $this->attributes['variant_key_128']
+            ?? null;
+
         if (!$path) return null;
 
         if (filter_var($path, FILTER_VALIDATE_URL)) {
