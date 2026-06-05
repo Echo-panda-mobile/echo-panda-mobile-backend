@@ -26,31 +26,4 @@ Artisan::command('releases:publish-scheduled', function () {
 })->purpose('Publish artist releases once scheduled_at is reached');
 
 Schedule::command('releases:publish-scheduled')->everyMinute();
-
-// Dynamic Playlists Generation
-Artisan::command('recommendations:generate-daily', function () {
-    $service = app(\App\Services\RecommendationService::class);
-    $users = \App\Models\User::all(); // In production, maybe filter by active users
-    foreach ($users as $user) {
-        $service->generateDailyMix($user);
-    }
-})->purpose('Generate daily mixes for users');
-
-Artisan::command('recommendations:generate-weekly', function () {
-    $service = app(\App\Services\RecommendationService::class);
-    $users = \App\Models\User::all();
-    foreach ($users as $user) {
-        $service->generateDiscoverWeekly($user);
-    }
-})->purpose('Generate discover weekly for users');
-
-Artisan::command('recommendations:update-trending', function () {
-    $service = app(\App\Services\RecommendationService::class);
-    $service->generateTrendingPlaylist();
-})->purpose('Update trending playlist');
-
-Schedule::command('recommendations:generate-daily')->dailyAt('04:00');
-Schedule::command('recommendations:generate-weekly')->weeklyOn(1, '04:00'); // Mondays
-Schedule::command('recommendations:update-trending')->hourly();
-
 Schedule::job(new DecayUserPreferenceScores())->daily();
