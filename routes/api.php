@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\Mobile\MbPlaybackController;
 use App\Http\Controllers\Api\PlaylistController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\SongController;
+use App\Http\Controllers\Api\CatalogImageUploadController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\UserUploadController;
 use Illuminate\Support\Facades\Route;
@@ -48,6 +49,8 @@ Route::get('/artists', [\App\Http\Controllers\Api\Artist\ArtistController::class
 Route::get('/artists/popular', [MbArtistController::class, 'popular'])->name('api.artists.popular');
 Route::get('/artists/{artist}/image-url', [\App\Http\Controllers\Api\Artist\ArtistController::class, 'imageUrl'])->name('api.artists.image-url');
 Route::get('/users/{user}/image-url', [UserController::class, 'imageUrl'])->name('api.users.image-url');
+Route::get('/genres/{genre}/image-url', [GenreController::class, 'imageUrl'])->name('api.genres.image-url');
+Route::get('/tags/{tag}/image-url', [TagController::class, 'imageUrl'])->name('api.tags.image-url');
 
 // Protected Routes (require authentication)
 Route::middleware('auth:sanctum')->group(function () {
@@ -61,6 +64,15 @@ Route::middleware('auth:sanctum')->group(function () {
             ->name('api.users.by-role');
         Route::post('/admin/artists', [AdminArtistController::class, 'store'])
             ->name('api.admin.artists.store');
+
+        Route::post('/genres/{genre}/image/presign', [CatalogImageUploadController::class, 'presignGenre'])
+            ->name('api.genres.image.presign');
+        Route::post('/genres/{genre}/image', [CatalogImageUploadController::class, 'mediaGenre'])
+            ->name('api.genres.image.store');
+        Route::post('/tags/{tag}/image/presign', [CatalogImageUploadController::class, 'presignTag'])
+            ->name('api.tags.image.presign');
+        Route::post('/tags/{tag}/image', [CatalogImageUploadController::class, 'mediaTag'])
+            ->name('api.tags.image.store');
     });
 
     // Profile Routes

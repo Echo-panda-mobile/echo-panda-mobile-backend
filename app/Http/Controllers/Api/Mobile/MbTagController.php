@@ -26,6 +26,7 @@ class MbTagController extends Controller
                 'id' => (string) $tag->id,
                 'name' => $tag->name,
                 'slug' => $tag->slug,
+                'image_url' => $tag->image_url,
                 'songs_count' => Song::query()
                     ->where('tag_id', $tag->id)
                     ->where('is_active', true)
