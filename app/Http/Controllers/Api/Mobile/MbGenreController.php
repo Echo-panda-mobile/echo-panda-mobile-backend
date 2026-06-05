@@ -26,6 +26,7 @@ class MbGenreController extends Controller
                 'id' => (string) $genre->id,
                 'name' => $genre->name,
                 'slug' => $genre->slug,
+                'image_url' => $genre->image_url,
                 'songs_count' => Song::query()
                     ->where('category_id', $genre->id)
                     ->where('is_active', true)

@@ -1,28 +1,36 @@
 #!/bin/bash
-
 set -e
 
 cd /var/www/html
 
-echo "🚀 Starting Laravel container..."
+echo "⏳ Waiting for database..."
+until php -r "
+new PDO(
+  'pgsql:host=${DB_HOST};port=${DB_PORT:-5432};dbname=${DB_DATABASE}',
+  '${DB_USERNAME}',
+  '${DB_PASSWORD}'
+);
+" 2>/dev/null; do
+  echo "  DB not ready, retrying in 2s..."
+  sleep 2
+done
+echo "✅ Database ready"
 
-# Ensure .env exists
-if [ ! -f .env ]; then
-    cp .env.example .env
-fi
+echo "📁 Creating storage directories..."
+mkdir -p /var/www/html/storage/framework/cache/data
+mkdir -p /var/www/html/storage/framework/sessions
+mkdir -p /var/www/html/storage/framework/views
+chown -R www-data:www-data /var/www/html/storage
+chmod -R 775 /var/www/html/storage
 
-# Generate app key ONLY if missing
-if ! grep -q "APP_KEY=base64" .env; then
-    php artisan key:generate --force || true
-fi
+echo "🗄️  Running migrations..."
+php artisan migrate --force
 
-# Run migrations safely
-php artisan migrate --force || true
+echo "⚙️  Caching config, routes, views..."
+php artisan view:cache
+php artisan config:cache
+php artisan route:cache
 
-# Fix permissions
-chown -R www-data:www-data storage bootstrap/cache
-chmod -R 775 storage bootstrap/cache
 
-echo "✅ Container ready"
-
+echo "✅ App ready, starting php-fpm..."
 exec "$@"

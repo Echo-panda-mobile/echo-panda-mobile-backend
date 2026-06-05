@@ -1,14 +1,11 @@
 name: Deploy Production
-
 on:
   push:
     branches:
       - main
-
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
     steps:
       - name: Deploy on VPS
         uses: appleboy/ssh-action@v1.2.0
@@ -16,5 +13,6 @@ jobs:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          command_timeout: 20m
           script: |
             /root/deploy.sh

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Artist;
 use App\Models\User;
 use App\Services\FirebaseUserProvisioner;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -17,7 +18,7 @@ use Inertia\Response;
 
 class ArtistController extends Controller
 {
-    protected function uploadImage($file, $folder, $artistName): string
+    protected function uploadImage(UploadedFile $file, string $folder, string $artistName): string
     {
         $ext = $file->getClientOriginalExtension();
         $uuid = (string) Str::uuid();
@@ -28,7 +29,7 @@ class ArtistController extends Controller
         // Fallback to S3 if public disk is not preferred or if we're in production
         $disk = config('filesystems.default') === 's3' ? 's3' : 'public';
 
-        \Illuminate\Support\Facades\Storage::disk($disk)->put($key, fopen($file->getRealPath(), 'r'));
+        Storage::disk($disk)->put($key, fopen($file->getRealPath(), 'r'));
 
         return $key;
     }
@@ -56,6 +57,13 @@ class ArtistController extends Controller
     public function store(Request $request)
     {
         $this->authorize('create', \App\Models\Artist::class);
+
+        $request->merge([
+            'facebook_url' => $request->filled('facebook_url') ? $request->input('facebook_url') : null,
+            'instagram_url' => $request->filled('instagram_url') ? $request->input('instagram_url') : null,
+            'tiktok_url' => $request->filled('tiktok_url') ? $request->input('tiktok_url') : null,
+            'youtube_url' => $request->filled('youtube_url') ? $request->input('youtube_url') : null,
+        ]);
 
         $validated = $request->validate([
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
@@ -173,6 +181,13 @@ class ArtistController extends Controller
     public function update(Request $request, Artist $artist)
     {
         $this->authorize('update', $artist);
+
+        $request->merge([
+            'facebook_url' => $request->filled('facebook_url') ? $request->input('facebook_url') : null,
+            'instagram_url' => $request->filled('instagram_url') ? $request->input('instagram_url') : null,
+            'tiktok_url' => $request->filled('tiktok_url') ? $request->input('tiktok_url') : null,
+            'youtube_url' => $request->filled('youtube_url') ? $request->input('youtube_url') : null,
+        ]);
 
         $validated = $request->validate([
             'name' => ['sometimes', 'required', 'string', 'max:255'],

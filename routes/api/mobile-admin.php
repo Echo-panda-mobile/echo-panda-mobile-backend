@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\Mobile\Admin\MbAdminArtistController;
 use App\Http\Controllers\Api\Mobile\Admin\MbAdminGenreController;
 use App\Http\Controllers\Api\Mobile\Admin\MbAdminSongController;
 use App\Http\Controllers\Api\Mobile\Admin\MbAdminTagController;
+use App\Http\Controllers\Api\CatalogImageUploadController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -30,6 +31,10 @@ Route::middleware(['auth:sanctum', 'role:admin'])
         Route::patch('tags/{tag}/status', [MbAdminTagController::class, 'updateStatus'])->name('tags.status');
         Route::patch('tags/{tag}/show-as-row', [MbAdminTagController::class, 'updateShowAsRow'])->name('tags.show-as-row');
         Route::delete('tags/{tag}', [MbAdminTagController::class, 'destroy'])->name('tags.destroy');
+        Route::post('tags/{tag}/image/presign', [CatalogImageUploadController::class, 'presignTag'])
+            ->name('tags.image.presign');
+        Route::post('tags/{tag}/image', [CatalogImageUploadController::class, 'mediaTag'])
+            ->name('tags.image.store');
 
         Route::get('genres', [MbAdminGenreController::class, 'index'])->name('genres.index');
         Route::post('genres', [MbAdminGenreController::class, 'store'])->name('genres.store');
@@ -37,6 +42,10 @@ Route::middleware(['auth:sanctum', 'role:admin'])
         Route::patch('genres/{genre}/status', [MbAdminGenreController::class, 'updateStatus'])->name('genres.status');
         Route::patch('genres/{genre}/show-as-row', [MbAdminGenreController::class, 'updateShowAsRow'])->name('genres.show-as-row');
         Route::delete('genres/{genre}', [MbAdminGenreController::class, 'destroy'])->name('genres.destroy');
+        Route::post('genres/{genre}/image/presign', [CatalogImageUploadController::class, 'presignGenre'])
+            ->name('genres.image.presign');
+        Route::post('genres/{genre}/image', [CatalogImageUploadController::class, 'mediaGenre'])
+            ->name('genres.image.store');
 
         Route::get('albums', [MbAdminAlbumController::class, 'index'])->name('albums.index');
         Route::put('albums/{album}', [MbAdminAlbumController::class, 'update'])->name('albums.update');

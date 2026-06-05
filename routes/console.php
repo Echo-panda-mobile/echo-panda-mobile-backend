@@ -4,6 +4,7 @@ use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
 use App\Models\Album;
+use App\Jobs\DecayUserPreferenceScores;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
@@ -51,3 +52,5 @@ Artisan::command('recommendations:update-trending', function () {
 Schedule::command('recommendations:generate-daily')->dailyAt('04:00');
 Schedule::command('recommendations:generate-weekly')->weeklyOn(1, '04:00'); // Mondays
 Schedule::command('recommendations:update-trending')->hourly();
+
+Schedule::job(new DecayUserPreferenceScores())->daily();

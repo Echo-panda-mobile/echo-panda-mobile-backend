@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Mobile\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Tag;
+use App\Services\CatalogImageService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -11,6 +12,9 @@ use Illuminate\Validation\Rule;
 
 class MbAdminTagController extends Controller
 {
+    public function __construct(
+        protected CatalogImageService $catalogImages
+    ) {}
     public function index(): JsonResponse
     {
         $tags = Tag::query()
@@ -43,6 +47,7 @@ class MbAdminTagController extends Controller
         $validated = $request->validate([
             'name' => ['sometimes', 'required', 'string', 'max:191', Rule::unique('tags', 'name')->ignore($tag->id)],
             'is_active' => ['sometimes', 'boolean'],
+            'image_url' => ['nullable', 'string', 'max:2048'],
         ]);
 
         $updates = [];
@@ -56,6 +61,11 @@ class MbAdminTagController extends Controller
 
         if ($updates !== []) {
             $tag->update($updates);
+            $tag->refresh();
+        }
+
+        if (array_key_exists('image_url', $validated)) {
+            $this->catalogImages->attachImage($tag, $validated['image_url']);
         }
 
         return response()->json($this->serializeTag($tag->fresh()));
@@ -96,6 +106,7 @@ class MbAdminTagController extends Controller
             'id' => $tag->id,
             'name' => $tag->name,
             'slug' => $tag->slug,
+            'image_url' => $tag->image_url,
             'is_active' => (bool) ($tag->is_active ?? true),
             'show_as_row' => (bool) ($tag->show_as_row ?? false),
             'songs_count' => 0,

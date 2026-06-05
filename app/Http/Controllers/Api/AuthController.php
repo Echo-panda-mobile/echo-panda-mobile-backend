@@ -26,6 +26,7 @@ class AuthController extends Controller
             'name' => $user->name,
             'email' => $user->email,
             'role' => $user->role,
+            'image_url' => $user->image_url,
             'artist_id' => $artist?->id,
             'artist' => $artist ? [
                 'id' => $artist->id,

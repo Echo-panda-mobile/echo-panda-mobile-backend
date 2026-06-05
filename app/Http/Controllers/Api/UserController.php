@@ -3,11 +3,11 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Tag;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Storage;
 
-class TagController extends Controller
+class UserController extends Controller
 {
     protected function keyFromUrlOrKey(?string $value): ?string
     {
@@ -24,34 +24,15 @@ class TagController extends Controller
         return $path ? ltrim(rawurldecode($path), '/') : null;
     }
 
-    protected function serializeTag(Tag $tag): array
-    {
-        return [
-            'id' => $tag->id,
-            'name' => $tag->name,
-            'slug' => $tag->slug,
-            'image_url' => $tag->image_url,
-        ];
-    }
-
-    public function index(): JsonResponse
-    {
-        $tags = Tag::orderBy('name')
-            ->get()
-            ->map(fn (Tag $tag) => $this->serializeTag($tag));
-
-        return response()->json($tags);
-    }
-
     /**
-     * Get signed image URL for a tag (public endpoint).
+     * Get signed image URL for a user (public endpoint).
      */
-    public function imageUrl(Tag $tag): JsonResponse
+    public function imageUrl(User $user): JsonResponse
     {
-        $imageKey = $this->keyFromUrlOrKey($tag->getAttributes()['image_url'] ?? null);
+        $imageKey = $this->keyFromUrlOrKey($user->getAttributes()['image_url'] ?? null);
 
         if (! $imageKey) {
-            return response()->json(['message' => 'Tag image not available'], 404);
+            return response()->json(['message' => 'User image not available'], 404);
         }
 
         /** @var \Illuminate\Filesystem\AwsS3V3Adapter $disk */
@@ -59,7 +40,7 @@ class TagController extends Controller
         $signedUrl = $disk->temporaryUrl($imageKey, now()->addMinutes(60));
 
         return response()->json([
-            'tag_id' => $tag->id,
+            'user_id' => $user->id,
             'signed_url' => $signedUrl,
             'expires_in_seconds' => 3600,
         ]);

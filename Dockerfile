@@ -1,6 +1,5 @@
 FROM php:8.3-fpm
 
-# System dependencies
 RUN apt-get update && apt-get install -y \
     libpng-dev \
     libjpeg62-turbo-dev \
@@ -14,20 +13,16 @@ RUN apt-get update && apt-get install -y \
     libonig-dev \
     build-essential \
     ffmpeg \
-    libsodium-dev \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install -j$(nproc) gd zip pdo pdo_mysql pgsql pdo_pgsql sodium \
+    && docker-php-ext-install -j$(nproc) gd zip pdo pdo_mysql pgsql pdo_pgsql \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Composer
 RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
 
-# Node.js (ONLY for build stage)
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y nodejs
 
-# PHP config
 RUN printf '%s\n' \
     'post_max_size=128M' \
     'upload_max_filesize=128M' \
@@ -35,26 +30,27 @@ RUN printf '%s\n' \
 
 WORKDIR /var/www/html
 
-# Copy app
-COPY . /var/www/html
+# Copy composer files first so Docker caches this layer
+# and only re-runs composer install when composer.json/lock changes
+COPY composer.json composer.lock ./
+RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist
 
-# Install backend dependencies
-RUN composer install --no-dev --optimize-autoloader
+# Copy full app (your .dockerignore keeps node_modules, .env, .git out)
+COPY . .
 
-# Install frontend + build (IMPORTANT: ONLY ONCE HERE)
-RUN npm install
-RUN npm run build
+# Finish composer with full app present (runs post-install scripts)
+RUN composer dump-autoload --optimize --no-dev
 
-# Permissions
-RUN chown -R www-data:www-data /var/www/html \
+# Build frontend assets inside the image
+RUN npm ci && npm run build && rm -rf node_modules
+
+# Fix permissions — only on specific dirs, not entire /var/www/html
+RUN chown -R www-data:www-data storage bootstrap/cache \
     && chmod -R 775 storage bootstrap/cache
 
-# Entry script
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
 ENTRYPOINT ["entrypoint.sh"]
-
 EXPOSE 9000
-
 CMD ["php-fpm"]

@@ -16,8 +16,10 @@ use App\Http\Controllers\Admin\ReportController as AdminReportController;
 use App\Http\Controllers\Admin\AlbumController as AdminAlbumController;
 use App\Http\Controllers\Admin\SongController as AdminSongController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
+use App\Http\Controllers\Admin\RecommendationAnalyticsController as AdminRecommendationAnalyticsController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Foundation\Application;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
 use Inertia\Inertia;
@@ -176,6 +178,9 @@ Route::get('/dashboard', function () {
         'moderation' => [
             'reports_open' => Report::count(),
             'favorites_total' => Favorite::count(),
+            'featured_items' => Schema::hasTable('featured_items')
+                ? DB::table('featured_items')->count()
+                : 0,
         ],
         'listening' => [
             'listen_events' => ListenHistory::count(),
@@ -215,6 +220,19 @@ Route::middleware('auth')->group(function () {
 
     // Admin Routes
     Route::prefix('admin')->name('admin.')->middleware('role:admin')->group(function () {
+        // Legacy alias kept for older frontend bundles that still call route('admin.products.index').
+        Route::get('products', function () {
+            return redirect()->route('admin.albums.index');
+        })->name('products.index');
+
+        // Legacy alias kept for older frontend bundles that still call route('admin.analytics.index').
+        Route::get('analytics', function () {
+            return redirect()->route('dashboard');
+        })->name('analytics.index');
+
+        Route::get('analytics/recommendations', [AdminRecommendationAnalyticsController::class, 'index'])
+            ->name('analytics.recommendations');
+
         // Legacy alias kept for older frontend bundles that still call route('admin.featured.index').
         Route::get('featured', [AdminReportController::class, 'index'])->name('featured.index');
         Route::resource('artists', AdminArtistController::class);

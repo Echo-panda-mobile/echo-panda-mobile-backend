@@ -18,7 +18,11 @@ use App\Http\Controllers\Api\Mobile\MbFavoriteController;
 use App\Http\Controllers\Api\Mobile\MbPlaybackController;
 use App\Http\Controllers\Api\PlaylistController;
 use App\Http\Controllers\Api\ProfileController;
+use App\Http\Controllers\Api\RecommendationController;
 use App\Http\Controllers\Api\SongController;
+use App\Http\Controllers\Api\CatalogImageUploadController;
+use App\Http\Controllers\Api\UserController;
+use App\Http\Controllers\Api\UserUploadController;
 use Illuminate\Support\Facades\Route;
 
 use App\Http\Controllers\Api\ShareController;
@@ -36,17 +40,23 @@ Route::get('/tags', [TagController::class, 'index'])->name('api.tags.index');
 
 // Public Album and Song Routes (readable by everyone)
 Route::get('/albums', [AlbumController::class, 'index'])->name('api.albums.index');
+Route::get('/albums/new-releases-today', [AlbumController::class, 'newReleasesToday'])->name('api.albums.new-releases-today');
 Route::get('/albums/{album}', [AlbumController::class, 'show'])->name('api.albums.show');
 Route::get('/albums/{albumId}/songs', [SongController::class, 'getByAlbum'])->name('api.albums.songs');
 Route::get('/albums/{album}/cover-url', [AlbumController::class, 'coverUrl'])->name('api.albums.cover-url');
 Route::get('/songs', [SongController::class, 'index'])->name('api.songs.index');
 Route::get('/songs/{song}', [SongController::class, 'show'])->name('api.songs.show');
+Route::get('/recommendations/similar/{song}', [RecommendationController::class, 'similar'])->name('api.recommendations.similar');
+Route::get('/recommendations/cold-start', [RecommendationController::class, 'coldStart'])->name('api.recommendations.cold-start');
 Route::get('/stats/most-played-songs', [ListenHistoryController::class, 'mostPlayedSongs'])->name('api.stats.most-played-songs');
 Route::get('/stats/most-played-albums', [ListenHistoryController::class, 'mostPlayedAlbums'])->name('api.stats.most-played-albums');
 Route::get('/genres', [\App\Http\Controllers\Api\GenreController::class, 'index'])->name('api.genres.index');
 Route::get('/artists', [\App\Http\Controllers\Api\Artist\ArtistController::class, 'index'])->name('api.artists.index');
 Route::get('/artists/popular', [MbArtistController::class, 'popular'])->name('api.artists.popular');
 Route::get('/artists/{artist}/image-url', [\App\Http\Controllers\Api\Artist\ArtistController::class, 'imageUrl'])->name('api.artists.image-url');
+Route::get('/users/{user}/image-url', [UserController::class, 'imageUrl'])->name('api.users.image-url');
+Route::get('/genres/{genre}/image-url', [GenreController::class, 'imageUrl'])->name('api.genres.image-url');
+Route::get('/tags/{tag}/image-url', [TagController::class, 'imageUrl'])->name('api.tags.image-url');
 
 // Protected Routes (require authentication)
 Route::middleware('auth:sanctum')->group(function () {
@@ -60,13 +70,28 @@ Route::middleware('auth:sanctum')->group(function () {
             ->name('api.users.by-role');
         Route::post('/admin/artists', [AdminArtistController::class, 'store'])
             ->name('api.admin.artists.store');
+
+        Route::post('/genres/{genre}/image/presign', [CatalogImageUploadController::class, 'presignGenre'])
+            ->name('api.genres.image.presign');
+        Route::post('/genres/{genre}/image', [CatalogImageUploadController::class, 'mediaGenre'])
+            ->name('api.genres.image.store');
+        Route::post('/tags/{tag}/image/presign', [CatalogImageUploadController::class, 'presignTag'])
+            ->name('api.tags.image.presign');
+        Route::post('/tags/{tag}/image', [CatalogImageUploadController::class, 'mediaTag'])
+            ->name('api.tags.image.store');
     });
 
     // Profile Routes
     Route::get('/profile', [ProfileController::class, 'show'])->name('api.profile.show');
     Route::put('/profile', [ProfileController::class, 'update'])->name('api.profile.update');
+    Route::post('/upload/user-image/presign', [UserUploadController::class, 'presign'])
+        ->name('api.upload.user-image.presign');
+    Route::post('/upload/user-image', [UserUploadController::class, 'media'])
+        ->name('api.upload.user-image.store');
     Route::get('/profile/favorite-songs', [ProfileController::class, 'getFavoriteSongs'])->name('api.profile.favorite-songs');
     Route::get('/profile/favorite-albums', [ProfileController::class, 'getFavoriteAlbums'])->name('api.profile.favorite-albums');
+    Route::get('/recommendations', [RecommendationController::class, 'index'])->name('api.recommendations.index');
+    Route::post('/recommendations/events', [RecommendationController::class, 'trackEvent'])->name('api.recommendations.events.track');
 
     // General Media Upload Routes (Internal logic handles specific role permissions)
     Route::post('/upload/media/presign', [UploadController::class, 'presignMedia'])
