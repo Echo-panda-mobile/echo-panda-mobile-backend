@@ -120,14 +120,18 @@ class Song extends Model
             return $path;
         }
 
-        if (\Illuminate\Support\Facades\Storage::disk('public')->exists($path)) {
-            return \Illuminate\Support\Facades\Storage::disk('public')->url($path);
+        /** @var FilesystemAdapter $publicDisk */
+        $publicDisk = \Illuminate\Support\Facades\Storage::disk('public');
+        if ($publicDisk->exists($path)) {
+            return $publicDisk->url($path);
         }
 
+        /** @var FilesystemAdapter $s3Disk */
+        $s3Disk = \Illuminate\Support\Facades\Storage::disk('s3');
         try {
-            return \Illuminate\Support\Facades\Storage::disk('s3')->temporaryUrl($path, now()->addMinutes(60));
+            return $s3Disk->temporaryUrl($path, now()->addMinutes(60));
         } catch (\Exception $e) {
-            return \Illuminate\Support\Facades\Storage::disk('s3')->url($path);
+            return $s3Disk->url($path);
         }
     }
 
