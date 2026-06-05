@@ -3,6 +3,8 @@ services:
     image: postgres:15
     container_name: echo-pandas-postgres
     restart: unless-stopped
+    ports:
+      - "5432:5432"
     # No ports: — DB is internal only, not exposed to the internet
     environment:
       POSTGRES_DB: ${DB_DATABASE}
