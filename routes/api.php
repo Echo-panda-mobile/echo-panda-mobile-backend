@@ -137,6 +137,8 @@ Route::middleware('auth:sanctum')->group(function () {
     // Playlist Routes
     Route::get('/playlists', [PlaylistController::class, 'index'])->name('api.playlists.index');
     Route::post('/playlists', [PlaylistController::class, 'store'])->name('api.playlists.store');
+    Route::put('/playlists/{playlist}', [PlaylistController::class, 'update'])->name('api.playlists.update');
+    Route::post('/playlists/{playlist}/cover', [PlaylistController::class, 'uploadCover'])->name('api.playlists.upload-cover');
     Route::delete('/playlists/{playlist}', [PlaylistController::class, 'destroy'])->name('api.playlists.destroy');
     Route::get('/playlists/{playlist}/songs', [PlaylistController::class, 'songs'])->name('api.playlists.songs');
     Route::post('/playlists/{playlist}/songs', [PlaylistController::class, 'addSong'])->name('api.playlists.add-song');

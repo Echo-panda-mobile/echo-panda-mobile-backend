@@ -112,6 +112,7 @@ class ListenHistoryController extends Controller
         $albumIds = $rows->pluck('album_id')->all();
 
         $albums = \App\Models\Album::query()
+            ->withCount('songs')
             ->whereIn('id', $albumIds)
             ->get()
             ->keyBy('id');
