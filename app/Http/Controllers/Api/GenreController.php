@@ -42,6 +42,7 @@ class GenreController extends Controller
     public function index(): JsonResponse
     {
         $genres = Genre::query()
+            ->where('is_active', true)
             ->orderBy('name')
             ->get()
             ->map(fn (Genre $genre) => $this->serializeGenre($genre));
