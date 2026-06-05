@@ -9,10 +9,22 @@ use App\Services\UserPreferenceService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Filesystem\FilesystemAdapter;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 
 class PlaylistController extends Controller
 {
+    protected function hasPlaylistColumn(string $column): bool
+    {
+        static $cache = [];
+
+        if (! array_key_exists($column, $cache)) {
+            $cache[$column] = Schema::hasColumn('playlists', $column);
+        }
+
+        return (bool) $cache[$column];
+    }
+
     protected function resolveImageUrl(?string $imageSource): ?string
     {
         if (! $imageSource) {
@@ -81,12 +93,20 @@ class PlaylistController extends Controller
             'image_url' => 'nullable|string|max:2048',
         ]);
 
-        $playlist = Playlist::create([
+        $payload = [
             'user_id' => $request->user()->id,
             'name' => $validated['name'],
-            'description' => $validated['description'] ?? null,
-            'image_url' => $validated['image_url'] ?? null,
-        ]);
+        ];
+
+        if ($this->hasPlaylistColumn('description')) {
+            $payload['description'] = $validated['description'] ?? null;
+        }
+
+        if ($this->hasPlaylistColumn('image_url')) {
+            $payload['image_url'] = $validated['image_url'] ?? null;
+        }
+
+        $playlist = Playlist::create($payload);
 
         return response()->json([
             'message' => 'Playlist created successfully',
@@ -109,7 +129,20 @@ class PlaylistController extends Controller
             'image_url' => 'nullable|string|max:2048',
         ]);
 
-        $playlist->update($validated);
+        $updates = [];
+        if (array_key_exists('name', $validated)) {
+            $updates['name'] = $validated['name'];
+        }
+        if ($this->hasPlaylistColumn('description') && array_key_exists('description', $validated)) {
+            $updates['description'] = $validated['description'];
+        }
+        if ($this->hasPlaylistColumn('image_url') && array_key_exists('image_url', $validated)) {
+            $updates['image_url'] = $validated['image_url'];
+        }
+
+        if ($updates !== []) {
+            $playlist->update($updates);
+        }
 
         return response()->json([
             'message' => 'Playlist updated successfully',

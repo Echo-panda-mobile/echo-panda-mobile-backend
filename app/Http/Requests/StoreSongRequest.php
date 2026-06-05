@@ -35,6 +35,7 @@ class StoreSongRequest extends FormRequest
             'is_explicit' => ['nullable', 'boolean'],
             'featured_artists' => ['nullable', 'string'],
             'original_key' => ['nullable', 'string', 'max:1024'],
+            'lyrics_url' => ['nullable', 'string', 'max:1024'],
             'cover_key' => ['nullable', 'string', 'max:1024'],
             'preview_key' => ['nullable', 'string', 'max:1024'],
         ];
