@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Album;
 use App\Models\Favorite;
 use App\Models\Song;
+use App\Services\UserPreferenceService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -38,7 +39,7 @@ class FavoriteController extends Controller
     /**
      * Add a song to favorites.
      */
-    public function addSong(Request $request): JsonResponse
+    public function addSong(Request $request, UserPreferenceService $preferenceService): JsonResponse
     {
         $request->validate([
             'song_id' => 'required|exists:songs,id',
@@ -64,6 +65,8 @@ class FavoriteController extends Controller
             'favoritable_id' => $song->id,
             'favoritable_type' => Song::class,
         ]);
+
+        $preferenceService->applyFavorite((int) $user->id, $song);
 
         return response()->json([
             'message' => 'Song added to favorites',

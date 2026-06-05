@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\Mobile\MbFavoriteController;
 use App\Http\Controllers\Api\Mobile\MbPlaybackController;
 use App\Http\Controllers\Api\PlaylistController;
 use App\Http\Controllers\Api\ProfileController;
+use App\Http\Controllers\Api\RecommendationController;
 use App\Http\Controllers\Api\SongController;
 use App\Http\Controllers\Api\CatalogImageUploadController;
 use App\Http\Controllers\Api\UserController;
@@ -37,11 +38,14 @@ Route::get('/tags', [TagController::class, 'index'])->name('api.tags.index');
 
 // Public Album and Song Routes (readable by everyone)
 Route::get('/albums', [AlbumController::class, 'index'])->name('api.albums.index');
+Route::get('/albums/new-releases-today', [AlbumController::class, 'newReleasesToday'])->name('api.albums.new-releases-today');
 Route::get('/albums/{album}', [AlbumController::class, 'show'])->name('api.albums.show');
 Route::get('/albums/{albumId}/songs', [SongController::class, 'getByAlbum'])->name('api.albums.songs');
 Route::get('/albums/{album}/cover-url', [AlbumController::class, 'coverUrl'])->name('api.albums.cover-url');
 Route::get('/songs', [SongController::class, 'index'])->name('api.songs.index');
 Route::get('/songs/{song}', [SongController::class, 'show'])->name('api.songs.show');
+Route::get('/recommendations/similar/{song}', [RecommendationController::class, 'similar'])->name('api.recommendations.similar');
+Route::get('/recommendations/cold-start', [RecommendationController::class, 'coldStart'])->name('api.recommendations.cold-start');
 Route::get('/stats/most-played-songs', [ListenHistoryController::class, 'mostPlayedSongs'])->name('api.stats.most-played-songs');
 Route::get('/stats/most-played-albums', [ListenHistoryController::class, 'mostPlayedAlbums'])->name('api.stats.most-played-albums');
 Route::get('/genres', [\App\Http\Controllers\Api\GenreController::class, 'index'])->name('api.genres.index');
@@ -84,6 +88,8 @@ Route::middleware('auth:sanctum')->group(function () {
         ->name('api.upload.user-image.store');
     Route::get('/profile/favorite-songs', [ProfileController::class, 'getFavoriteSongs'])->name('api.profile.favorite-songs');
     Route::get('/profile/favorite-albums', [ProfileController::class, 'getFavoriteAlbums'])->name('api.profile.favorite-albums');
+    Route::get('/recommendations', [RecommendationController::class, 'index'])->name('api.recommendations.index');
+    Route::post('/recommendations/events', [RecommendationController::class, 'trackEvent'])->name('api.recommendations.events.track');
 
     // Artist/Publisher Routes
     Route::middleware('role:artist,publicer,admin')->group(function () {

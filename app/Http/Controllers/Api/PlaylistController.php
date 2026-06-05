@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Playlist;
 use App\Models\Song;
+use App\Services\UserPreferenceService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -84,7 +85,7 @@ class PlaylistController extends Controller
     /**
      * Add song to playlist.
      */
-    public function addSong(Request $request, Playlist $playlist): JsonResponse
+    public function addSong(Request $request, Playlist $playlist, UserPreferenceService $preferenceService): JsonResponse
     {
         if ((int) $playlist->user_id !== (int) $request->user()->id) {
             return response()->json(['message' => 'Forbidden'], 403);
@@ -95,6 +96,7 @@ class PlaylistController extends Controller
         ]);
 
         $songId = (int) $validated['song_id'];
+        $song = Song::query()->with(['genre', 'artistModel', 'tag'])->findOrFail($songId);
 
         if ($playlist->songs()->where('song_id', $songId)->exists()) {
             return response()->json([
@@ -103,6 +105,7 @@ class PlaylistController extends Controller
         }
 
         $playlist->songs()->attach($songId, ['added_at' => now()]);
+        $preferenceService->applyPlaylistAdd((int) $request->user()->id, $song);
 
         return response()->json([
             'message' => 'Song added to playlist',
