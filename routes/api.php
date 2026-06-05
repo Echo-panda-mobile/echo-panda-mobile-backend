@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\AlbumController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\FavoriteController;
 use App\Http\Controllers\Api\Artist\AnalyticsController;
+use App\Http\Controllers\Api\Artist\ArtistController as ApiArtistController;
 use App\Http\Controllers\Api\Artist\UploadController;
 use App\Http\Controllers\Api\GenreController;
 use App\Http\Controllers\Api\TagController;
@@ -124,6 +125,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::get('/artist/analytics', [AnalyticsController::class, 'show'])
             ->name('api.artist.analytics.show');
+
+        Route::put('/artist/profile', [ApiArtistController::class, 'updateProfile'])
+            ->name('api.artist.profile.update');
     });
 
     // Allow creating an artist profile for authenticated users who are not artists yet
